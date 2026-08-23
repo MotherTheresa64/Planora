@@ -10,7 +10,7 @@
 - Calendar and analytics views built from shared domain data
 - Credential-free demo mode so reviewers can use the product immediately
 - Firebase Google sign-in adapter activates automatically when environment variables are provided
-- Express production server, health/config endpoints, SPA fallback, and `render.yaml`
+- Express production server, health/config endpoints, SPA fallback, Render Blueprint, and CI workflow
 
 ## Stack
 
@@ -28,7 +28,7 @@ Open `http://localhost:5173`. The app is fully usable without credentials and st
 ## Production
 
 ```bash
-npm ci
+npm install
 npm run build
 npm start
 ```
@@ -42,3 +42,7 @@ Copy `.env.example` to `.env` and fill the four `VITE_FIREBASE_*` values from a 
 ## Architecture notes
 
 The UI is driven by a typed `Workspace` domain model rather than page-local mock fragments. Persistence is isolated in `storage.ts`, authentication in `firebase.ts`, and the production web process in `server/index.ts`, making it straightforward to replace local persistence with a remote repository later without rewriting presentation components.
+
+## Portfolio intent
+
+Planora is designed as a realistic SaaS surface rather than a tutorial clone: it demonstrates information architecture, responsive UX, state modeling, workflow design, deployment configuration, CI, and graceful degradation when third-party credentials are absent.
