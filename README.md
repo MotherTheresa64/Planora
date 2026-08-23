@@ -1,48 +1,88 @@
 # Planora
 
-**Plan clearly. Ship calmly.** Planora is a polished project-planning SaaS concept built to demonstrate production-minded React/TypeScript engineering, thoughtful interaction design, persistent client state, optional Firebase authentication, and Render-ready deployment.
+**Plan clearly. Ship calmly.** Planora is a production-minded project-planning SaaS concept built with React and TypeScript. It is designed to demonstrate real application state modeling, responsive product UI, workflow logic, optional authentication, CI, and deployable Node hosting—not just static dashboard screens.
 
-## Product highlights
+## What works today
 
-- Responsive executive dashboard with workspace metrics and weekly momentum
-- Multi-project Kanban board with search, filtering, priorities, estimates, tags, and workflow transitions
-- Project creation and task capture flows with durable local persistence
-- Calendar and analytics views built from shared domain data
-- Credential-free demo mode so reviewers can use the product immediately
-- Firebase Google sign-in adapter activates automatically when environment variables are provided
-- Express production server, health/config endpoints, SPA fallback, Render Blueprint, and CI workflow
+- Responsive workspace dashboard with live completion, workload, priority, and focus metrics
+- Multi-project Kanban workflow with Backlog, In progress, Review, and Done states
+- Project progress derived from actual task completion instead of hard-coded percentages
+- Project filtering plus a true assignee-specific **My tasks** view
+- Global task search across titles, tags, assignees, project names, and notes
+- `Ctrl/Cmd + K` keyboard shortcut to focus search
+- Task creation with project, priority, due date, estimate, tags, and notes
+- Project creation with due date and configurable accent color
+- Rolling current-month calendar populated from task due dates
+- Dynamic insights generated from the active workspace state
+- Persistent browser demo data with one-click reset
+- Google sign-in support when Firebase environment variables are configured
+- Express production host with health/config endpoints and SPA fallback
+- Render Blueprint and GitHub Actions typecheck/build validation
 
 ## Stack
 
-React 19 · TypeScript · Vite · Express · Firebase Auth (optional) · Lucide · CSS design system
+**Frontend:** React 19, TypeScript, Vite, Lucide, custom CSS  
+**Auth:** Firebase Authentication (optional)  
+**Hosting:** Express 5, Render Blueprint  
+**Quality:** strict TypeScript, GitHub Actions, deterministic pinned dependency versions
 
 ## Run locally
+
+Requires Node `22.16+`.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The app is fully usable without credentials and stores demo changes in `localStorage`.
+The Vite client runs at `http://localhost:5173`. Planora is fully usable without credentials and stores demo workspace changes in `localStorage`.
 
-## Production
+Useful checks:
 
 ```bash
-npm install
+npm run typecheck
 npm run build
 npm start
 ```
 
-The Express server serves the compiled SPA and exposes `GET /api/health`. Render can deploy directly from the included Blueprint.
+`npm start` serves the compiled SPA through Express after a production build.
 
-### Firebase
+## Firebase authentication
 
-Copy `.env.example` to `.env` and fill the four `VITE_FIREBASE_*` values from a Firebase web app. Enable Google authentication in Firebase Authentication. Without them, the user control intentionally remains in demo mode.
+Copy `.env.example` to `.env` and configure:
 
-## Architecture notes
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_APP_ID=
+```
 
-The UI is driven by a typed `Workspace` domain model rather than page-local mock fragments. Persistence is isolated in `storage.ts`, authentication in `firebase.ts`, and the production web process in `server/index.ts`, making it straightforward to replace local persistence with a remote repository later without rewriting presentation components.
+Enable Google as a sign-in provider in Firebase Authentication. If these values are absent, Planora deliberately stays in credential-free demo mode rather than failing at startup.
+
+## Production boundary
+
+The complete product experience currently uses a typed, versioned browser workspace for persistence. The repository already isolates persistence (`storage.ts`), authentication (`firebase.ts`), domain types (`types.ts`), and production hosting (`server/index.ts`) so a remote database/API layer can replace local persistence without requiring a UI rewrite.
+
+The server exposes:
+
+- `GET /api/health` — service health and runtime mode
+- `GET /api/config` — non-secret integration readiness flags
+
+No secrets are committed to the repository.
+
+## Deployment
+
+`render.yaml` defines a Node web service with a pinned Node runtime, explicit dev-tool installation for builds, health checks, and Firebase environment placeholders.
+
+On Render, the intended flow is:
+
+```text
+GitHub repo → npm install → typecheck/build → Express host → health check
+```
+
+The included CI workflow separately verifies TypeScript and confirms both the frontend and server build artifacts are produced.
 
 ## Portfolio intent
 
-Planora is designed as a realistic SaaS surface rather than a tutorial clone: it demonstrates information architecture, responsive UX, state modeling, workflow design, deployment configuration, CI, and graceful degradation when third-party credentials are absent.
+Planora demonstrates the parts of frontend/full-stack work that are easy to miss in tutorial projects: derived state, data integrity, keyboard interaction, responsive layouts, graceful credential handling, deploy configuration, production server behavior, and a clear path from local-first demo persistence to a hosted data layer.
