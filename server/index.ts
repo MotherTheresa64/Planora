@@ -29,4 +29,7 @@ app.use('/assets',express.static(path.join(client,'assets'),{maxAge:'1y',immutab
 app.use(express.static(client,{maxAge:0,index:false}));
 app.get(/.*/,(_req,res)=>res.sendFile(path.join(client,'index.html'),{headers:{'Cache-Control':'no-cache'}}));
 
-app.listen(port,'0.0.0.0',()=>console.log(`Planora listening on ${port}`));
+const server=app.listen(port,'0.0.0.0',()=>console.log(`Planora listening on ${port}`));
+const shutdown=()=>server.close(()=>process.exit(0));
+process.on('SIGTERM',shutdown);
+process.on('SIGINT',shutdown);
