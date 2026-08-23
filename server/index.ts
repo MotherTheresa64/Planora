@@ -20,9 +20,13 @@ app.get('/api/config',(_req,res)=>res.json({
   database:Boolean(process.env.DATABASE_URL)
 }));
 
+app.use('/api',(_req,res)=>res.status(404).json({error:'API route not found'}));
+
 const here=path.dirname(fileURLToPath(import.meta.url));
 const client=path.resolve(here,'../dist');
-app.use(express.static(client,{maxAge:'1h',etag:true}));
-app.get(/.*/,(_req,res)=>res.sendFile(path.join(client,'index.html')));
+
+app.use('/assets',express.static(path.join(client,'assets'),{maxAge:'1y',immutable:true}));
+app.use(express.static(client,{maxAge:0,index:false}));
+app.get(/.*/,(_req,res)=>res.sendFile(path.join(client,'index.html'),{headers:{'Cache-Control':'no-cache'}}));
 
 app.listen(port,'0.0.0.0',()=>console.log(`Planora listening on ${port}`));
