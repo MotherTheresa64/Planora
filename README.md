@@ -14,10 +14,12 @@
 - Project creation with due date and configurable accent color
 - Rolling current-month calendar populated from task due dates
 - Dynamic insights generated from the active workspace state
-- Persistent browser demo data with one-click reset
+- Validated browser persistence with graceful recovery from malformed/blocked storage
+- Branded runtime error recovery instead of blank-screen failure
 - Google sign-in support when Firebase environment variables are configured
-- Express production host with health/config endpoints and SPA fallback
-- Render Blueprint and GitHub Actions typecheck/build validation
+- Installable web-app metadata and responsive accessibility safeguards
+- Express production host with health/config endpoints, security headers, caching policy, and SPA fallback
+- Render Blueprint and GitHub Actions gated on the same full verification command
 
 ## Stack
 
@@ -37,15 +39,13 @@ npm run dev
 
 The Vite client runs at `http://localhost:5173`. Planora is fully usable without credentials and stores demo workspace changes in `localStorage`.
 
-Useful checks:
+Full preflight:
 
 ```bash
-npm run typecheck
-npm run build
-npm start
+npm run check
 ```
 
-`npm start` serves the compiled SPA through Express after a production build.
+That command typechecks both targets, builds the client/server, and verifies the required production artifacts. Afterward, `npm start` serves the compiled SPA through Express.
 
 ## Firebase authentication
 
@@ -71,6 +71,12 @@ The server exposes:
 
 No secrets are committed to the repository.
 
+## Engineering docs
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — domain model, persistence boundary, auth flow, deployment shape, and production evolution
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — local/Render/Firebase deployment runbook and first-deploy checks
+- [`docs/QA.md`](docs/QA.md) — functional, responsive, accessibility, persistence, and API acceptance checklist
+
 ## Deployment
 
 `render.yaml` defines a Node web service with a pinned Node runtime, explicit dev-tool installation for builds, health checks, and Firebase environment placeholders.
@@ -78,10 +84,10 @@ No secrets are committed to the repository.
 On Render, the intended flow is:
 
 ```text
-GitHub repo → npm install → typecheck/build → Express host → health check
+GitHub repo → npm install → npm run check → Express host → health check
 ```
 
-The included CI workflow separately verifies TypeScript and confirms both the frontend and server build artifacts are produced.
+CI uses the same `npm run check` contract, keeping local, CI, and Render verification aligned.
 
 ## Portfolio intent
 
