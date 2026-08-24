@@ -6,23 +6,22 @@ Use Node `22.16.0` (the repo includes `.nvmrc`). From the repository root:
 
 ```bash
 npm install
-npm run typecheck
-npm run build
+npm run check
+npm run smoke:server
 ```
 
-A successful build should produce:
+`npm run check` typechecks both TypeScript targets, builds the Vite client and Express server, and verifies these required artifacts:
 
 - `dist/index.html`
-- `dist/assets/*`
 - `dist-server/index.js`
 
-Then verify the production host locally:
+`npm run smoke:server` then boots the compiled production server on a temporary local port, verifies `/api/health`, confirms an unknown `/api/*` route returns JSON `404`, and shuts the process down.
+
+For manual production-host inspection after those checks:
 
 ```bash
 npm start
 ```
-
-Open the port printed by the server and confirm `/api/health` returns JSON with `status: "ok"`.
 
 ## 2. Firebase Auth
 
@@ -48,7 +47,7 @@ Create a Blueprint from this repository. The included `render.yaml` defines one 
 Expected commands:
 
 ```text
-Build: npm install --include=dev && npm run build
+Build: npm install --include=dev --no-audit --no-fund && npm run check
 Start: npm start
 Health: /api/health
 ```
