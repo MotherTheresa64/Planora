@@ -1,277 +1,62 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
-import type {ReactNode} from 'react';
-import {
-  LayoutDashboard,FolderKanban,CalendarDays,BarChart3,Search,Plus,Bell,
-  ChevronDown,CheckCircle2,Clock3,CircleDot,Flame,Sparkles,X,RotateCcw,
-  Menu,Command,MoreHorizontal,ArrowUpRight,Trash2,TrendingUp,AlertTriangle,
-  CalendarClock,Gauge
-} from 'lucide-react';
-import type {Priority,Project,Status,Task,Workspace} from './types';
-import {loadWorkspace,resetWorkspace,saveWorkspace} from './storage';
-import {firebaseReady,signInGoogle} from './firebase';
+import type {Dispatch,SetStateAction} from 'react';
+import type {User} from 'firebase/auth';
+import {LayoutDashboard,ListTodo,Target,FolderKanban,Route,CalendarDays,BookOpen,BarChart3,Search,Plus,Bell,Menu,Command,Cloud,CloudOff,Download,RotateCcw,LogOut,ChevronDown,CheckCircle2,Clock3,AlertTriangle,Flag,Trash2,GripVertical,Sparkles,X,ExternalLink,TrendingUp,Users} from 'lucide-react';
+import type {Milestone,Plan,PlanStatus,Priority,Resource,ResourceKind,Task,TaskStatus,Workspace} from './types';
+import {exportWorkspace,loadWorkspace,resetWorkspace,saveWorkspace} from './storage';
+import {firebaseReady,firstName,loadCloudWorkspace,saveCloudWorkspace,signInGoogle,signOutUser,subscribeAuth} from './firebase';
 
-type View='Overview'|'Projects'|'My tasks'|'Calendar'|'Insights';
-const statuses:Status[]=['Backlog','In progress','Review','Done'];
+type View='Dashboard'|'Today'|'Plans'|'Tasks'|'Roadmap'|'Calendar'|'Resources'|'Insights';
+type Modal='task'|'plan'|'resource'|null;
+const statuses:TaskStatus[]=['Backlog','To Do','In Progress','Blocked','Complete'];
 const priorities:Priority[]=['Low','Medium','High','Urgent'];
-const nav:[View,typeof LayoutDashboard][]=[
-  ['Overview',LayoutDashboard],['Projects',FolderKanban],['My tasks',CheckCircle2],
-  ['Calendar',CalendarDays],['Insights',BarChart3]
-];
-const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
-const monthShort=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-function todayLabel(){
-  return new Intl.DateTimeFormat('en-US',{weekday:'long',month:'long',day:'numeric'}).format(new Date());
-}
-function greeting(){
-  const hour=new Date().getHours();
-  return hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
-}
-function viewDescription(view:View){
-  if(view==='Overview')return 'Here’s what needs your attention and what’s moving forward.';
-  if(view==='Projects')return 'Move work from idea to done across every active project.';
-  if(view==='My tasks')return 'Your assigned work, prioritized and ready to move.';
-  if(view==='Calendar')return 'See deadlines in context and spot busy stretches before they happen.';
-  return 'Understand workload, delivery health, priorities, and upcoming deadlines.';
-}
-function formatDateInput(value:string){
-  const [year,month,day]=value.split('-').map(Number);
-  if(!year||!month||!day)return value;
-  return `${monthShort[month-1]} ${String(day).padStart(2,'0')}`;
-}
-function projectProgress(data:Workspace,projectId:string){
-  const projectTasks=data.tasks.filter(t=>t.projectId===projectId);
-  if(!projectTasks.length)return 0;
-  return Math.round(projectTasks.filter(t=>t.status==='Done').length/projectTasks.length*100);
-}
-function taskDueDate(task:Task){
-  const year=new Date().getFullYear();
-  const parsed=new Date(`${task.due}, ${year}`);
-  return Number.isNaN(parsed.getTime())?new Date(8640000000000000):parsed;
-}
+const planStatuses:PlanStatus[]=['Draft','Planned','Active','On Track','At Risk','Behind','Paused','Completed','Archived'];
+const nav:[View,typeof LayoutDashboard][]=[['Dashboard',LayoutDashboard],['Today',ListTodo],['Plans',Target],['Tasks',FolderKanban],['Roadmap',Route],['Calendar',CalendarDays],['Resources',BookOpen],['Insights',BarChart3]];
+const iso=()=>new Date().toISOString().slice(0,10);
+const date=(value:string)=>new Date(`${value}T12:00:00`);
+const fmt=(value:string)=>new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric'}).format(date(value));
+const addDays=(value:string,n:number)=>{const d=date(value);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+const open=(task:Task)=>task.status!=='Complete';
+const next=(status:TaskStatus)=>statuses[(statuses.indexOf(status)+1)%statuses.length];
+const initials=(value:string)=>value.trim().split(/\s+/).slice(0,2).map(v=>v[0]?.toUpperCase()).join('')||'YOU';
+function progress(data:Workspace,planId:string){const tasks=data.tasks.filter(t=>t.planId===planId);return tasks.length?Math.round(tasks.filter(t=>t.status==='Complete').length/tasks.length*100):0}
+function milestoneProgress(data:Workspace,id:string){const tasks=data.tasks.filter(t=>t.milestoneId===id);return tasks.length?Math.round(tasks.filter(t=>t.status==='Complete').length/tasks.length*100):(data.milestones.find(m=>m.id===id)?.status==='Complete'?100:0)}
+function health(data:Workspace,plan:Plan):PlanStatus{if(['Draft','Paused','Completed','Archived'].includes(plan.status))return plan.status;const late=data.tasks.filter(t=>t.planId===plan.id&&open(t)&&t.dueDate<iso()).length;if(plan.targetDate<iso()&&progress(data,plan.id)<100)return'Behind';if(late>=2)return'At Risk';return plan.status==='Planned'?'Planned':'On Track'}
+function spread(start:string,end:string,fraction:number){const days=Math.max(1,Math.ceil((date(end).getTime()-date(start).getTime())/86400000));return addDays(start,Math.round(days*fraction))}
+function generate(plan:Plan){const templates=[['Define the outcome','Clarify success criteria, constraints, and the path forward.'],['Build the foundation','Complete prerequisites before the core work.'],['Execute the core work','Turn the plan into its main deliverable.'],['Finish and reflect','Polish the outcome and capture lessons learned.']];const ms=templates.map(([name,description],i):Milestone=>({id:crypto.randomUUID(),planId:plan.id,name,description,status:i?'Not Started':'In Progress',targetDate:spread(plan.startDate,plan.targetDate,[.2,.45,.75,1][i]),order:i+1,dependencies:[]}));ms.forEach((m,i)=>m.dependencies=i?[ms[i-1].id]:[]);const tasks=ms.flatMap((m,i)=>['Define the next result','Complete the focused work','Review and adjust'].map((title,j):Task=>({id:crypto.randomUUID(),planId:plan.id,milestoneId:m.id,title:i===2&&j===1?`Complete the core work for ${plan.name}`:title,status:i===0&&j===0?'To Do':'Backlog',priority:i===2?'High':plan.priority,assignee:'You',dueDate:spread(plan.startDate,m.targetDate,(j+1)/3),estimate:2,tags:[plan.category.toLowerCase()],subtasks:[],dependencies:[],createdAt:new Date().toISOString()})));return{milestones:ms,tasks}}
 
 export default function App(){
-  const [data,setData]=useState<Workspace>(loadWorkspace);
-  const [view,setView]=useState<View>('Overview');
-  const [query,setQuery]=useState('');
-  const [selectedProject,setSelectedProject]=useState('all');
-  const [modal,setModal]=useState<'task'|'project'|null>(null);
-  const [menu,setMenu]=useState(false);
-  const [toast,setToast]=useState('');
-  const searchRef=useRef<HTMLInputElement>(null);
-
-  useEffect(()=>saveWorkspace(data),[data]);
-  useEffect(()=>{
-    if(!toast)return;
-    const timer=setTimeout(()=>setToast(''),2400);
-    return()=>clearTimeout(timer);
-  },[toast]);
-  useEffect(()=>{
-    const onKey=(event:KeyboardEvent)=>{
-      if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){
-        event.preventDefault();searchRef.current?.focus();
-      }
-      if(event.key==='Escape'){
-        setModal(null);setMenu(false);
-      }
-    };
-    window.addEventListener('keydown',onKey);
-    return()=>window.removeEventListener('keydown',onKey);
-  },[]);
-
-  const matchingTasks=useMemo(()=>{
-    const q=query.trim().toLowerCase();
-    return data.tasks.filter(task=>{
-      const project=data.projects.find(p=>p.id===task.projectId);
-      return !q||`${task.title} ${task.tags.join(' ')} ${task.assignee} ${project?.name??''} ${task.note??''}`.toLowerCase().includes(q);
-    });
-  },[data,query]);
-
-  const boardTasks=useMemo(()=>{
-    if(view==='My tasks')return matchingTasks.filter(t=>t.assignee==='NR');
-    return matchingTasks.filter(t=>selectedProject==='all'||t.projectId===selectedProject);
-  },[matchingTasks,selectedProject,view]);
-
-  const done=data.tasks.filter(t=>t.status==='Done').length;
-  const totalHours=data.tasks.reduce((sum,t)=>sum+t.estimate,0);
-  const completion=Math.round(done/Math.max(data.tasks.length,1)*100);
-  const urgentOpen=data.tasks.filter(t=>t.priority==='Urgent'&&t.status!=='Done').length;
-
-  const updateTask=(id:string,status:Status)=>{
-    setData(current=>({...current,tasks:current.tasks.map(t=>t.id===id?{...t,status}:t)}));
-    setToast(status==='Done'?'Task completed':`Moved to ${status}`);
-  };
-  const deleteTask=(id:string)=>{
-    setData(current=>({...current,tasks:current.tasks.filter(task=>task.id!==id)}));
-    setToast('Task deleted');
-  };
-  const addTask=(task:Task)=>{
-    setData(current=>({...current,tasks:[task,...current.tasks]}));
-    setModal(null);setToast('Task created');
-  };
-  const addProject=(project:Project)=>{
-    setData(current=>({...current,projects:[project,...current.projects]}));
-    setSelectedProject(project.id);setView('Projects');setModal(null);setToast('Project created');
-  };
-  const deleteProject=(id:string)=>{
-    const project=data.projects.find(item=>item.id===id);
-    if(!project)return;
-    if(!window.confirm(`Delete “${project.name}” and all of its tasks?`))return;
-    setData(current=>({projects:current.projects.filter(item=>item.id!==id),tasks:current.tasks.filter(task=>task.projectId!==id)}));
-    setSelectedProject('all');setToast('Project deleted');
-  };
-  const signIn=async()=>{
-    if(!firebaseReady){setToast('Demo mode — add Firebase keys to enable Google sign-in');return}
-    try{await signInGoogle();setToast('Signed in with Google')}
-    catch{setToast('Google sign-in was cancelled or unavailable')}
-  };
-  const reset=()=>{
-    setData(resetWorkspace());setSelectedProject('all');setQuery('');setView('Overview');setToast('Demo workspace reset');
-  };
-  const chooseView=(next:View)=>{
-    setView(next);if(next==='My tasks')setSelectedProject('all');setMenu(false);
-  };
-
-  return <div className="app-shell">
-    <aside className={menu?'sidebar open':'sidebar'}>
-      <div className="brand"><span className="brand-mark">P</span><span>planora</span></div>
-      <button className="workspace" onClick={()=>setToast('Northstar is the active workspace')}><span className="avatar small">NR</span><span><b>Northstar</b><small>Personal workspace</small></span><ChevronDown size={15}/></button>
-      <nav>{nav.map(([label,Icon])=><button key={label} className={view===label?'nav active':'nav'} onClick={()=>chooseView(label)}><Icon size={18}/>{label}</button>)}</nav>
-      <div className="side-label">Projects <button onClick={()=>setModal('project')} aria-label="Create project"><Plus size={15}/></button></div>
-      <div className="project-nav">{data.projects.map(project=><button key={project.id} onClick={()=>{setSelectedProject(project.id);setView('Projects');setMenu(false)}}><span style={{background:project.color}}/>{project.name}</button>)}</div>
-      <div className="sidebar-bottom"><div className="focus-card"><Sparkles size={18}/><b>Focus mode</b><p>Quiet the noise and work one task at a time.</p><button onClick={()=>{setView('My tasks');setQuery('');setMenu(false);setToast('Focus view opened')}}>Start focus</button></div><button className="reset" onClick={reset}><RotateCcw size={15}/> Reset demo</button></div>
-    </aside>
-
-    <main>
-      <header>
-        <button className="mobile-menu" onClick={()=>setMenu(!menu)} aria-label="Toggle navigation"><Menu/></button>
-        <div className="search"><Search size={17}/><input ref={searchRef} placeholder="Search tasks, projects, people…" value={query} onChange={e=>setQuery(e.target.value)} aria-label="Search workspace"/><span><Command size={13}/> K</span></div>
-        <div className="header-actions"><button className="icon-btn" onClick={()=>setToast('You’re all caught up')} aria-label="Notifications"><Bell size={19}/><i/></button><button className="user-button" onClick={signIn}><span className="avatar">NR</span><span className="user-copy"><b>Noah</b><small>{firebaseReady?'Google sign-in ready':'Demo workspace'}</small></span><ChevronDown size={14}/></button></div>
-      </header>
-
-      <section className="content">
-        <div className="page-head"><div><p className="eyebrow">{todayLabel()}</p><h1>{view==='Overview'?`${greeting()}, Noah.`:view}</h1><p>{viewDescription(view)}</p></div><button className="primary" onClick={()=>setModal('task')} disabled={!data.projects.length}><Plus size={17}/> New task</button></div>
-
-        {view==='Overview'&&<>
-          <div className="metric-grid">
-            <Metric icon={<CheckCircle2/>} label="Completion" value={`${completion}%`} note={`${done} of ${data.tasks.length} tasks closed`} trend={completion>=50?'On track':'Building momentum'}/>
-            <Metric icon={<Clock3/>} label="Planned effort" value={`${totalHours}h`} note="Across active work" trend={`${data.tasks.filter(t=>t.status!=='Done').length} open tasks`}/>
-            <Metric icon={<CircleDot/>} label="In progress" value={`${data.tasks.filter(t=>t.status==='In progress').length}`} note="Tasks moving now" trend={urgentOpen?`${urgentOpen} urgent`:'No urgent blockers'}/>
-            <Metric icon={<Flame/>} label="Focus score" value={`${Math.max(0,100-urgentOpen*12)}%`} note="Based on urgent work load" trend={urgentOpen?'Prioritize blockers':'Healthy workload'}/>
-          </div>
-          <div className="section-title"><div><h2>Active projects</h2><p>Your highest-signal workspaces.</p></div><button className="text-button" onClick={()=>{setSelectedProject('all');setView('Projects')}}>View all <ArrowUpRight size={15}/></button></div>
-          <div className="projects-grid">{data.projects.map(project=><ProjectCard key={project.id} project={project} progress={projectProgress(data,project.id)} taskCount={data.tasks.filter(t=>t.projectId===project.id&&t.status!=='Done').length} onOpen={()=>{setSelectedProject(project.id);setView('Projects')}}/>)}</div>
-          <div className="two-col"><div><div className="section-title"><div><h2>{query?'Search results':'Priority queue'}</h2><p>{query?`${matchingTasks.length} matching tasks`:'What deserves focus next.'}</p></div></div><div className="task-list">{matchingTasks.filter(t=>t.status!=='Done').slice(0,5).map(task=><TaskRow key={task.id} task={task} project={data.projects.find(p=>p.id===task.projectId)} onAdvance={()=>updateTask(task.id,nextStatus(task.status))}/>)}{matchingTasks.filter(t=>t.status!=='Done').length===0&&<div className="empty">Nothing needs attention here.</div>}</div></div><div><div className="section-title"><div><h2>Workspace pulse</h2><p>Current workflow distribution.</p></div></div><Pulse data={data}/></div></div>
-        </>}
-
-        {(view==='Projects'||view==='My tasks')&&<Board data={data} tasks={boardTasks} selected={view==='My tasks'?'all':selectedProject} setSelected={setSelectedProject} updateTask={updateTask} deleteTask={deleteTask} deleteProject={deleteProject} hideProjectFilter={view==='My tasks'}/>} 
-        {view==='Calendar'&&<Calendar data={data}/>} 
-        {view==='Insights'&&<Insights data={data}/>} 
-      </section>
-    </main>
-
-    {modal==='task'&&<TaskModal projects={data.projects} onClose={()=>setModal(null)} onSave={addTask}/>} 
-    {modal==='project'&&<ProjectModal onClose={()=>setModal(null)} onSave={addProject}/>} 
-    {toast&&<div className="toast"><CheckCircle2 size={17}/>{toast}</div>}
-  </div>
+ const [scope,setScope]=useState('guest'),[data,setData]=useState<Workspace>(()=>loadWorkspace()),[user,setUser]=useState<User|null>(null),[cloud,setCloud]=useState<'local'|'syncing'|'synced'|'error'>(firebaseReady?'syncing':'local'),[view,setView]=useState<View>('Dashboard'),[selected,setSelected]=useState('all'),[query,setQuery]=useState(''),[modal,setModal]=useState<Modal>(null),[menu,setMenu]=useState(false),[toast,setToast]=useState('');
+ const searchRef=useRef<HTMLInputElement>(null),skip=useRef(false);
+ useEffect(()=>subscribeAuth(async u=>{const key=u?`user:${u.uid}`:'guest';setUser(u);setScope(key);skip.current=true;const local=loadWorkspace(key);if(!u){setData(local);setCloud('local');return}setCloud('syncing');try{setData((await loadCloudWorkspace(u.uid))??local);setCloud('synced')}catch{setData(local);setCloud('error')}}),[]);
+ useEffect(()=>{if(skip.current){skip.current=false;return}saveWorkspace(data,scope);if(!user)return;setCloud('syncing');const timer=setTimeout(()=>saveCloudWorkspace(user.uid,data).then(()=>setCloud('synced')).catch(()=>setCloud('error')),600);return()=>clearTimeout(timer)},[data,scope,user]);
+ useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),2400);return()=>clearTimeout(t)},[toast]);
+ useEffect(()=>{const key=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();searchRef.current?.focus()}if(e.key==='Escape'){setModal(null);setMenu(false)}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[]);
+ const results=useMemo(()=>{const q=query.trim().toLowerCase();if(!q)return null;return{plans:data.plans.filter(p=>`${p.name} ${p.goal} ${p.description} ${p.category}`.toLowerCase().includes(q)),tasks:data.tasks.filter(t=>`${t.title} ${t.notes??''} ${t.tags.join(' ')}`.toLowerCase().includes(q)),milestones:data.milestones.filter(m=>`${m.name} ${m.description}`.toLowerCase().includes(q)),resources:data.resources.filter(r=>`${r.title} ${r.notes??''} ${r.kind}`.toLowerCase().includes(q)),notes:data.notes.filter(n=>`${n.title} ${n.body}`.toLowerCase().includes(q))}},[data,query]);
+ const act=(current:Workspace,message:string,type:Workspace['activity'][number]['type'],planId?:string)=>[{id:crypto.randomUUID(),type,message,createdAt:new Date().toISOString(),planId},...current.activity].slice(0,80);
+ const move=(id:string,status:TaskStatus)=>setData(c=>{const t=c.tasks.find(x=>x.id===id);if(!t)return c;return{...c,tasks:c.tasks.map(x=>x.id===id?{...x,status,completedAt:status==='Complete'?new Date().toISOString():undefined}:x),activity:act(c,`${status==='Complete'?'Completed':'Moved'} “${t.title}”${status==='Complete'?'.':` to ${status}.`}`,'task',t.planId)}});
+ const addTask=(task:Task)=>{setData(c=>({...c,tasks:[task,...c.tasks],activity:act(c,`Created “${task.title}”.`,'task',task.planId)}));setModal(null);setToast('Task created')};
+ const addPlan=(plan:Plan,smart:boolean)=>{const made=smart?generate(plan):{milestones:[],tasks:[] as Task[]};setData(c=>({...c,plans:[plan,...c.plans],milestones:[...made.milestones,...c.milestones],tasks:[...made.tasks,...c.tasks],activity:act(c,`${smart?'Generated starter plan for':'Created'} “${plan.name}”.`,'plan',plan.id)}));setSelected(plan.id);setView('Plans');setModal(null);setToast(smart?'Starter plan generated':'Plan created')};
+ const addResource=(r:Resource)=>{setData(c=>({...c,resources:[r,...c.resources],activity:act(c,`Added resource “${r.title}”.`,'resource',r.planId)}));setModal(null);setToast('Resource added')};
+ const download=()=>{const a=document.createElement('a'),url=URL.createObjectURL(new Blob([exportWorkspace(data)],{type:'application/json'}));a.href=url;a.download=`planora-${iso()}.json`;a.click();URL.revokeObjectURL(url)};
+ const overdue=data.tasks.filter(t=>open(t)&&t.dueDate<iso()).length,atRisk=data.plans.filter(p=>['At Risk','Behind'].includes(health(data,p))).length;
+ return <div className="app-shell"><aside className={menu?'sidebar open':'sidebar'}><div className="brand"><span className="brand-mark">P</span><span>planora</span></div><button className="workspace"><span className="avatar small">{user?initials(firstName(user)):'P'}</span><span><b>{user?`${firstName(user)}'s workspace`:'Personal workspace'}</b><small>{cloud==='synced'?'Cloud synced':cloud==='syncing'?'Syncing…':cloud==='error'?'Local backup active':'Local persistence'}</small></span>{cloud==='synced'?<Cloud size={15}/>:<CloudOff size={15}/>}</button><nav>{nav.map(([label,Icon])=><button key={label} className={view===label?'nav active':'nav'} onClick={()=>{setView(label);setMenu(false)}}><Icon size={18}/>{label}</button>)}</nav><div className="side-label">Active plans <button onClick={()=>setModal('plan')}><Plus size={15}/></button></div><div className="project-nav">{data.plans.filter(p=>!['Archived','Completed'].includes(p.status)).slice(0,6).map(p=><button key={p.id} onClick={()=>{setSelected(p.id);setView('Plans')}}><span style={{background:p.color}}/>{p.name}</button>)}</div><div className="sidebar-bottom"><div className="focus-card"><Sparkles size={18}/><b>Planora focus</b><p>See the most relevant work without digging through every plan.</p><button onClick={()=>setView('Today')}>Open Today</button></div><div className="utility-actions"><button className="reset" onClick={download}><Download size={15}/> Export</button><button className="reset" onClick={()=>{setData(resetWorkspace(scope));setView('Dashboard');setSelected('all')}}><RotateCcw size={15}/> Reset</button></div></div></aside><main><header><button className="mobile-menu" onClick={()=>setMenu(!menu)}><Menu/></button><div className="search"><Search size={17}/><input ref={searchRef} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search plans, tasks, milestones, resources…"/><span><Command size={13}/>K</span></div><div className="header-actions"><button className="icon-btn" onClick={()=>setToast(overdue+atRisk?`${overdue+atRisk} items need attention`:'You’re all caught up')}><Bell size={19}/>{overdue+atRisk>0&&<i/>}</button><button className="user-button" onClick={user?()=>signOutUser():async()=>{if(!firebaseReady){setToast('Add Firebase keys to enable cloud accounts');return}try{await signInGoogle()}catch{setToast('Sign-in unavailable')}}}><span className="avatar">{user?initials(firstName(user)):'G'}</span><span className="user-copy"><b>{user?firstName(user):'Guest'}</b><small>{user?'Sign out':firebaseReady?'Sign in with Google':'Demo workspace'}</small></span>{user?<LogOut size={14}/>:<ChevronDown size={14}/>}</button></div></header><section className="content"><div className="page-head"><div><p className="eyebrow">{new Intl.DateTimeFormat('en-US',{weekday:'long',month:'long',day:'numeric'}).format(new Date())}</p><h1>{view==='Dashboard'?`Good ${new Date().getHours()<12?'morning':new Date().getHours()<18?'afternoon':'evening'}, ${user?firstName(user):'there'}.`:view}</h1><p>{results?'Search across your complete workspace.':descriptions[view]}</p></div><div className="page-actions"><button className="secondary" onClick={()=>setModal('plan')}><Target size={16}/>New plan</button><button className="primary" onClick={()=>setModal('task')} disabled={!data.plans.length}><Plus size={17}/>New task</button></div></div>{results?<SearchResults data={data} results={results} openPlan={id=>{setSelected(id);setQuery('');setView('Plans')}}/>:<ViewBody view={view} data={data} selected={selected} setSelected={setSelected} move={move} setData={setData} setModal={setModal}/>}</section></main>{modal==='task'&&<TaskModal plans={data.plans} milestones={data.milestones} selected={selected} close={()=>setModal(null)} save={addTask}/>} {modal==='plan'&&<PlanModal owner={user?firstName(user):'You'} close={()=>setModal(null)} save={addPlan}/>} {modal==='resource'&&<ResourceModal plans={data.plans} milestones={data.milestones} selected={selected} close={()=>setModal(null)} save={addResource}/>} {toast&&<div className="toast"><CheckCircle2 size={17}/>{toast}</div>}</div>;
 }
-
-function nextStatus(status:Status):Status{return statuses[(statuses.indexOf(status)+1)%statuses.length]}
-
-function Metric({icon,label,value,note,trend}:{icon:ReactNode;label:string;value:string;note:string;trend:string}){
-  return <div className="metric"><div className="metric-top"><span className="metric-icon">{icon}</span><small>{trend}</small></div><strong>{value}</strong><b>{label}</b><p>{note}</p></div>
-}
-
-function ProjectCard({project,progress,taskCount,onOpen}:{project:Project;progress:number;taskCount:number;onOpen:()=>void}){
-  return <button className="project-card" onClick={onOpen}><div className="project-top"><span className="project-icon" style={{background:`${project.color}22`,color:project.color}}>{project.emoji}</span><MoreHorizontal/></div><h3>{project.name}</h3><p>{project.description}</p><div className="progress-meta"><span>{progress}% complete</span><span>{taskCount} open</span></div><div className="progress"><i style={{width:`${progress}%`,background:project.color}}/></div><div className="project-foot"><div className="avatars">{project.members.map(member=><span key={member}>{member}</span>)}</div><small>Due {project.due}</small></div></button>
-}
-
-function PriorityBadge({priority}:{priority:Priority}){return <span className={`priority ${priority.toLowerCase()}`}>{priority}</span>}
-
-function TaskRow({task,project,onAdvance}:{task:Task;project?:Project;onAdvance:()=>void}){
-  return <div className="task-row"><button className={`status-dot ${task.status==='Done'?'complete':''}`} onClick={onAdvance} aria-label={`Move ${task.title} forward`}>{task.status==='Done'&&'✓'}</button><div className="task-main"><b>{task.title}</b><small><span style={{background:project?.color}}/>{project?.name??'Unassigned'} · Due {task.due}</small></div><PriorityBadge priority={task.priority}/><span className="avatar mini">{task.assignee}</span></div>
-}
-
-function Board({data,tasks,selected,setSelected,updateTask,deleteTask,deleteProject,hideProjectFilter=false}:{data:Workspace;tasks:Task[];selected:string;setSelected:(value:string)=>void;updateTask:(id:string,status:Status)=>void;deleteTask:(id:string)=>void;deleteProject:(id:string)=>void;hideProjectFilter?:boolean}){
-  return <>
-    <div className="toolbar"><div className="toolbar-left">{!hideProjectFilter&&<select value={selected} onChange={e=>setSelected(e.target.value)}><option value="all">All projects</option>{data.projects.map(project=><option key={project.id} value={project.id}>{project.name}</option>)}</select>}{!hideProjectFilter&&selected!=='all'&&<button className="danger-button" onClick={()=>deleteProject(selected)}><Trash2 size={14}/>Delete project</button>}</div><span>{tasks.length} {tasks.length===1?'task':'tasks'}</span></div>
-    <div className="board">{statuses.map(status=><section className="column" key={status}><div className="column-head"><b>{status}</b><span>{tasks.filter(t=>t.status===status).length}</span></div>{tasks.filter(t=>t.status===status).map(task=><article className="task-card" key={task.id}><div className="task-card-top"><PriorityBadge priority={task.priority}/><button className="delete-task" onClick={()=>deleteTask(task.id)} aria-label={`Delete ${task.title}`} title="Delete task"><Trash2 size={15}/></button></div><h3>{task.title}</h3>{task.note&&<p>{task.note}</p>}<div className="tags">{task.tags.map(tag=><span key={tag}>{tag}</span>)}</div><div className="task-card-foot"><span className="avatar mini">{task.assignee}</span><small>{task.due} · {task.estimate}h</small></div><button className="advance" onClick={()=>updateTask(task.id,nextStatus(task.status))}>Move to {nextStatus(task.status)} →</button></article>)}{tasks.filter(t=>t.status===status).length===0&&<div className="column-empty">No tasks</div>}</section>)}</div>
-  </>
-}
-
-function Calendar({data}:{data:Workspace}){
-  const now=new Date();
-  const year=now.getFullYear();
-  const month=now.getMonth();
-  const daysInMonth=new Date(year,month+1,0).getDate();
-  const mondayOffset=(new Date(year,month,1).getDay()+6)%7;
-  const cells=Array.from({length:42},(_,index)=>index-mondayOffset+1);
-  const taskOnDay=(task:Task,day:number)=>{
-    const [m,d]=task.due.split(' ');
-    return monthShort.indexOf(m)===month&&Number(d)===day;
-  };
-  const monthTasks=data.tasks.filter(task=>{const [m]=task.due.split(' ');return monthShort.indexOf(m)===month});
-  return <div className="calendar-card"><div className="calendar-top"><h2>{monthNames[month]} {year}</h2><span>{monthTasks.length} scheduled tasks</span></div><div className="weekdays">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><b key={day}>{day}</b>)}</div><div className="month-grid">{cells.map((day,index)=>{const inMonth=day>=1&&day<=daysInMonth;const isToday=inMonth&&day===now.getDate();return <div className={`${inMonth?'day':'day muted'}${isToday?' today':''}`} key={index}><span>{day<1?new Date(year,month,day).getDate():day>daysInMonth?day-daysInMonth:day}</span>{inMonth&&data.tasks.filter(task=>taskOnDay(task,day)).slice(0,3).map(task=><small key={task.id} title={task.title}>{task.title}</small>)}</div>})}</div></div>
-}
-
-function Insights({data}:{data:Workspace}){
-  const byStatus=statuses.map(status=>({status,count:data.tasks.filter(t=>t.status===status).length}));
-  const max=Math.max(...byStatus.map(item=>item.count),1);
-  const completeTasks=data.tasks.filter(t=>t.status==='Done');
-  const completion=Math.round(completeTasks.length/Math.max(data.tasks.length,1)*100);
-  const highOpen=data.tasks.filter(t=>(t.priority==='High'||t.priority==='Urgent')&&t.status!=='Done').length;
-  const openHours=data.tasks.filter(t=>t.status!=='Done').reduce((sum,t)=>sum+t.estimate,0);
-  const doneHours=completeTasks.reduce((sum,t)=>sum+t.estimate,0);
-  const upcoming=[...data.tasks].filter(t=>t.status!=='Done').sort((a,b)=>taskDueDate(a).getTime()-taskDueDate(b).getTime()).slice(0,4);
-  const projectStats=data.projects.map(project=>({project,hours:data.tasks.filter(t=>t.projectId===project.id&&t.status!=='Done').reduce((sum,t)=>sum+t.estimate,0),progress:projectProgress(data,project.id)})).sort((a,b)=>b.hours-a.hours);
-  const health=highOpen===0?'Healthy':highOpen<=2?'Watch':'At risk';
-  return <div className="insights-suite">
-    <div className={`health-banner ${health==='At risk'?'risk':''}`}><span className="metric-icon"><Gauge/></span><div><b>Workspace health: {health}</b><p>{highOpen?`${highOpen} high-priority task${highOpen===1?'':'s'} need attention.`:'No high-priority blockers are open.'}</p></div><strong>{completion}% complete</strong></div>
-    <div className="insights-grid">
-      <div className="insight-card wide"><div className="insight-heading"><div><TrendingUp/><span><h2>Work distribution</h2><p>Tasks by workflow stage.</p></span></div><b>{data.tasks.length} total</b></div><div className="bars">{byStatus.map(({status,count})=><div key={status}><span>{status}</span><div><i style={{width:`${count/max*100}%`}}/></div><b>{count}</b></div>)}</div></div>
-      <div className="insight-card"><h2>Completion</h2><div className="donut" style={{background:`radial-gradient(circle,#111726 55%,transparent 57%),conic-gradient(#8490ff 0 ${completion}%,#252e41 ${completion}% 100%)`}}><strong>{completion}%</strong><small>workspace tasks</small></div><p>{doneHours}h of planned work has reached Done.</p></div>
-      <div className="insight-card"><div className="insight-heading compact"><div><AlertTriangle/><span><h2>Priority load</h2><p>High-impact open work.</p></span></div></div><strong className="big-number">{highOpen}</strong><p>{openHours}h of estimated work remains across the workspace.</p><span className="positive">{highOpen<=2?'Manageable load':'Needs attention'}</span></div>
-      <div className="insight-card wide"><div className="insight-heading"><div><FolderKanban/><span><h2>Workload by project</h2><p>Open estimated hours and completion.</p></span></div></div><div className="project-insight-list">{projectStats.map(({project,hours,progress})=><div key={project.id}><span className="project-dot" style={{background:project.color}}/><div><b>{project.name}</b><small>{progress}% complete</small></div><strong>{hours}h open</strong></div>)}</div></div>
-      <div className="insight-card upcoming-card"><div className="insight-heading compact"><div><CalendarClock/><span><h2>Upcoming</h2><p>Nearest open deadlines.</p></span></div></div><div className="deadline-list">{upcoming.map(task=><div key={task.id}><span><b>{task.title}</b><small>{data.projects.find(project=>project.id===task.projectId)?.name??'Project'}</small></span><strong>{task.due}</strong></div>)}{upcoming.length===0&&<p>Everything is complete.</p>}</div></div>
-    </div>
-  </div>
-}
-
-function Pulse({data}:{data:Workspace}){
-  const values=statuses.map(status=>data.tasks.filter(t=>t.status===status).length);
-  const max=Math.max(...values,1);
-  return <div className="pulse-card"><div className="pulse-bars">{values.map((value,index)=><div key={statuses[index]}><i style={{height:`${Math.max(12,value/max*100)}%`}}/><span>{['B','P','R','D'][index]}</span></div>)}</div><div className="pulse-summary"><b>{data.tasks.filter(t=>t.status==='Done').length} tasks closed</b><span>Backlog · Progress · Review · Done</span></div></div>
-}
-
-function TaskModal({projects,onClose,onSave}:{projects:Project[];onClose:()=>void;onSave:(task:Task)=>void}){
-  const [title,setTitle]=useState('');
-  const [projectId,setProjectId]=useState(projects[0]?.id??'');
-  const [priority,setPriority]=useState<Priority>('Medium');
-  const [due,setDue]=useState(()=>new Date(Date.now()+7*86_400_000).toISOString().slice(0,10));
-  const [estimate,setEstimate]=useState('3');
-  const [tags,setTags]=useState('');
-  const [note,setNote]=useState('');
-  return <div className="overlay" onMouseDown={onClose}><form className="modal" onSubmit={event=>{event.preventDefault();if(title.trim()&&projectId)onSave({id:crypto.randomUUID(),projectId,title:title.trim(),status:'Backlog',priority,assignee:'NR',due:formatDateInput(due),estimate:Math.max(Number(estimate)||1,1),tags:tags.split(',').map(tag=>tag.trim()).filter(Boolean),note:note.trim()||undefined})}} onMouseDown={event=>event.stopPropagation()}>
-    <button type="button" className="close" onClick={onClose} aria-label="Close task form"><X/></button><span className="modal-icon"><Plus/></span><h2>Create a task</h2><p>Capture the outcome now. Refine the details later.</p>
-    <label>Task name<input autoFocus required value={title} onChange={event=>setTitle(event.target.value)} placeholder="e.g. Ship account settings"/></label>
-    <div className="form-grid"><label>Project<select value={projectId} onChange={event=>setProjectId(event.target.value)} required>{projects.map(project=><option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label>Priority<select value={priority} onChange={event=>setPriority(event.target.value as Priority)}>{priorities.map(item=><option key={item}>{item}</option>)}</select></label></div>
-    <div className="form-grid"><label>Due date<input type="date" value={due} onChange={event=>setDue(event.target.value)} required/></label><label>Estimate (hours)<input type="number" min="1" max="80" value={estimate} onChange={event=>setEstimate(event.target.value)} required/></label></div>
-    <label>Tags<input value={tags} onChange={event=>setTags(event.target.value)} placeholder="frontend, api, docs"/></label>
-    <label>Note<textarea value={note} onChange={event=>setNote(event.target.value)} placeholder="Context, acceptance criteria, or handoff notes"/></label>
-    <button className="primary full">Create task</button>
-  </form></div>
-}
-
-function ProjectModal({onClose,onSave}:{onClose:()=>void;onSave:(project:Project)=>void}){
-  const [name,setName]=useState('');
-  const [description,setDescription]=useState('');
-  const [due,setDue]=useState(()=>new Date(Date.now()+30*86_400_000).toISOString().slice(0,10));
-  const [color,setColor]=useState('#9b8cff');
-  return <div className="overlay" onMouseDown={onClose}><form className="modal" onSubmit={event=>{event.preventDefault();if(name.trim())onSave({id:crypto.randomUUID(),name:name.trim(),emoji:'◇',description:description.trim()||'A focused workspace for meaningful work.',color,progress:0,due:formatDateInput(due),members:['NR']})}} onMouseDown={event=>event.stopPropagation()}>
-    <button type="button" className="close" onClick={onClose} aria-label="Close project form"><X/></button><span className="modal-icon"><FolderKanban/></span><h2>New project</h2><p>Give the work a home and a clear outcome.</p>
-    <label>Name<input autoFocus required value={name} onChange={event=>setName(event.target.value)} placeholder="Project name"/></label>
-    <label>Description<textarea value={description} onChange={event=>setDescription(event.target.value)} placeholder="What are we trying to accomplish?"/></label>
-    <div className="form-grid"><label>Due date<input type="date" value={due} onChange={event=>setDue(event.target.value)} required/></label><label>Accent<input type="color" value={color} onChange={event=>setColor(event.target.value)}/></label></div>
-    <button className="primary full">Create project</button>
-  </form></div>
-}
+const descriptions:Record<View,string>={Dashboard:'Your command center for plans, deadlines, progress, and next actions.',Today:'A focused view of what deserves your attention right now.',Plans:'Turn goals into milestones, tasks, resources, and measurable progress.',Tasks:'Manage work across plans with a practical Kanban workflow.',Roadmap:'See how milestones connect today’s work to the larger goal.',Calendar:'Understand deadlines and scheduled work in context.',Resources:'Keep useful references attached to the work they support.',Insights:'Measure progress, workload, risks, and achievements.'};
+function ViewBody({view,...props}:{view:View;data:Workspace;selected:string;setSelected:(v:string)=>void;move:(id:string,s:TaskStatus)=>void;setData:Dispatch<SetStateAction<Workspace>>;setModal:(m:Modal)=>void}){if(view==='Dashboard')return <Dashboard {...props}/>;if(view==='Today')return <Today {...props}/>;if(view==='Plans')return <Plans {...props}/>;if(view==='Tasks')return <Board {...props}/>;if(view==='Roadmap')return <RoadmapView {...props}/>;if(view==='Calendar')return <CalendarView {...props}/>;if(view==='Resources')return <ResourcesView {...props}/>;return <Insights {...props}/>}
+function Metric({label,value,note}:{label:string;value:string;note:string}){return <div className="metric"><strong>{value}</strong><b>{label}</b><p>{note}</p></div>}
+function Status({value}:{value:PlanStatus}){return <span className={`plan-status ${value.toLowerCase().replaceAll(' ','-')}`}>{value}</span>}
+function TaskRow({task,data,move}:{task:Task;data:Workspace;move:(id:string,s:TaskStatus)=>void}){const p=data.plans.find(x=>x.id===task.planId);return <div className="task-row"><button className={`status-dot ${task.status==='Complete'?'complete':''}`} onClick={()=>move(task.id,next(task.status))}>{task.status==='Complete'?'✓':task.status==='Blocked'?'!':''}</button><div className="task-main"><b>{task.title}</b><small><span style={{background:p?.color}}/>{p?.name??'Unassigned'} · {fmt(task.dueDate)}</small></div><span className={`priority ${task.priority.toLowerCase()}`}>{task.priority}</span><span className="avatar mini">{initials(task.assignee)}</span></div>}
+function Dashboard({data,move}:{data:Workspace;move:(id:string,s:TaskStatus)=>void}){const openTasks=data.tasks.filter(open),done=data.tasks.length-openTasks.length,due=openTasks.filter(t=>t.dueDate===iso()),late=openTasks.filter(t=>t.dueDate<iso()),active=data.plans.filter(p=>!['Archived','Completed'].includes(p.status)),nextTasks=[...openTasks].sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,5);return <><div className="metric-grid"><Metric label="Overall progress" value={`${Math.round(done/Math.max(data.tasks.length,1)*100)}%`} note={`${done} of ${data.tasks.length} tasks complete`}/><Metric label="Due today" value={`${due.length}`} note={`${late.length} overdue`}/><Metric label="Active plans" value={`${active.length}`} note={`${data.milestones.filter(m=>m.status==='Complete').length} milestones achieved`}/><Metric label="Open effort" value={`${openTasks.reduce((s,t)=>s+t.estimate,0)}h`} note={`${openTasks.filter(t=>t.status==='Blocked').length} blocked`}/></div><div className="section-title"><div><h2>Active plans</h2><p>Goals with measurable progress and next actions.</p></div></div><div className="projects-grid">{active.slice(0,6).map(p=><div className="project-card" key={p.id}><div className="project-top"><span className="project-icon" style={{background:`${p.color}22`,color:p.color}}>{p.emoji}</span><Status value={health(data,p)}/></div><h3>{p.name}</h3><p>{p.goal}</p><div className="progress-meta"><span>{progress(data,p.id)}% complete</span><span>Target {fmt(p.targetDate)}</span></div><div className="progress"><i style={{width:`${progress(data,p.id)}%`,background:p.color}}/></div></div>)}</div><div className="section-title"><div><h2>What to do next</h2><p>Nearest open deadlines across your plans.</p></div></div><div className="task-list">{nextTasks.map(t=><TaskRow key={t.id} task={t} data={data} move={move}/>)}</div></>}
+function Today({data,move}:{data:Workspace;move:(id:string,s:TaskStatus)=>void}){const tasks=[...data.tasks].filter(open).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));const groups:[string,Task[]][]=[['Overdue',tasks.filter(t=>t.dueDate<iso())],['Today',tasks.filter(t=>t.dueDate===iso())],['Coming next',tasks.filter(t=>t.dueDate>iso()).slice(0,8)]];return <>{groups.map(([title,list])=><section className="today-section" key={title}><div className="section-title"><div><h2>{title}</h2></div><span className="count-pill">{list.length}</span></div><div className="task-list">{list.map(t=><TaskRow key={t.id} task={t} data={data} move={move}/>)}{!list.length&&<div className="empty compact">Nothing here.</div>}</div></section>)}</>}
+function Plans({data,selected,setSelected,move,setData}:{data:Workspace;selected:string;setSelected:(v:string)=>void;move:(id:string,s:TaskStatus)=>void;setData:Dispatch<SetStateAction<Workspace>>}){const plan=data.plans.find(p=>p.id===selected)??data.plans[0];if(!plan)return <div className="empty-state">Create your first plan.</div>;const ms=data.milestones.filter(m=>m.planId===plan.id).sort((a,b)=>a.order-b.order);return <><div className="toolbar"><select value={plan.id} onChange={e=>setSelected(e.target.value)}>{data.plans.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><select value={plan.status} onChange={e=>setData(c=>({...c,plans:c.plans.map(p=>p.id===plan.id?{...p,status:e.target.value as PlanStatus}:p)}))}>{planStatuses.map(s=><option key={s}>{s}</option>)}</select></div><div className="plan-hero"><div className="plan-title"><span className="project-icon large" style={{background:`${plan.color}22`,color:plan.color}}>{plan.emoji}</span><div><div className="plan-title-row"><h2>{plan.name}</h2><Status value={health(data,plan)}/></div><p>{plan.goal}</p></div></div><div className="plan-progress"><strong>{progress(data,plan.id)}%</strong><span>complete</span></div></div><div className="plan-meta-grid"><div><small>Category</small><b>{plan.category}</b></div><div><small>Priority</small><b>{plan.priority}</b></div><div><small>Timeline</small><b>{fmt(plan.startDate)} → {fmt(plan.targetDate)}</b></div><div><small>Collaborators</small><b><Users size={14}/>{plan.collaborators.length}</b></div></div><div className="plan-description"><h3>Plan brief</h3><p>{plan.description}</p></div><div className="section-title"><div><h2>Milestones</h2></div></div><div className="milestone-list">{ms.map(m=><MilestoneCard key={m.id} m={m} data={data} toggle={()=>setData(c=>({...c,milestones:c.milestones.map(x=>x.id===m.id?{...x,status:x.status==='Complete'?'In Progress':'Complete'}:x)}))}/>)}</div><div className="section-title"><div><h2>Plan tasks</h2></div></div><div className="task-list">{data.tasks.filter(t=>t.planId===plan.id).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).map(t=><TaskRow key={t.id} task={t} data={data} move={move}/>)}</div></>}
+function MilestoneCard({m,data,toggle}:{m:Milestone;data:Workspace;toggle:()=>void}){const p=milestoneProgress(data,m.id);return <article className="milestone-card"><button className={`milestone-check ${m.status==='Complete'?'complete':''}`} onClick={toggle}>{m.status==='Complete'?<CheckCircle2/>:<Flag/>}</button><div className="milestone-copy"><div><b>{m.name}</b><span>{m.status}</span></div><p>{m.description}</p><div className="progress"><i style={{width:`${p}%`}}/></div><small>{p}% · Target {fmt(m.targetDate)}</small></div></article>}
+function Board({data,selected,setSelected,move,setData}:{data:Workspace;selected:string;setSelected:(v:string)=>void;move:(id:string,s:TaskStatus)=>void;setData:Dispatch<SetStateAction<Workspace>>}){const [priority,setPriority]=useState<'all'|Priority>('all'),tasks=data.tasks.filter(t=>(selected==='all'||t.planId===selected)&&(priority==='all'||t.priority===priority));return <><div className="toolbar"><div className="toolbar-left"><select value={selected} onChange={e=>setSelected(e.target.value)}><option value="all">All plans</option>{data.plans.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><select value={priority} onChange={e=>setPriority(e.target.value as 'all'|Priority)}><option value="all">All priorities</option>{priorities.map(p=><option key={p}>{p}</option>)}</select></div><span>{tasks.length} tasks</span></div><div className="board planora-board">{statuses.map(status=><section className="column" key={status} onDragOver={e=>e.preventDefault()} onDrop={e=>{const id=e.dataTransfer.getData('text/planora-task');if(id)move(id,status)}}><div className="column-head"><b>{status}</b><span>{tasks.filter(t=>t.status===status).length}</span></div>{tasks.filter(t=>t.status===status).map(t=><article className="task-card" draggable key={t.id} onDragStart={e=>e.dataTransfer.setData('text/planora-task',t.id)}><div className="task-card-top"><GripVertical size={14}/><span className={`priority ${t.priority.toLowerCase()}`}>{t.priority}</span><button className="delete-task" onClick={()=>setData(c=>({...c,tasks:c.tasks.filter(x=>x.id!==t.id)}))}><Trash2 size={15}/></button></div><h3>{t.title}</h3><p>{t.notes}</p><div className="task-card-foot"><span className="avatar mini">{initials(t.assignee)}</span><small>{fmt(t.dueDate)} · {t.estimate}h</small></div><button className="advance" onClick={()=>move(t.id,next(t.status))}>Move to {next(t.status)} →</button></article>)}</section>)}</div></>}
+function RoadmapView({data,selected,setSelected,setData}:{data:Workspace;selected:string;setSelected:(v:string)=>void;setData:Dispatch<SetStateAction<Workspace>>}){const plan=data.plans.find(p=>p.id===selected)??data.plans[0];if(!plan)return <div className="empty-state">Create a plan first.</div>;const ms=data.milestones.filter(m=>m.planId===plan.id).sort((a,b)=>a.order-b.order);return <><div className="toolbar"><select value={plan.id} onChange={e=>setSelected(e.target.value)}>{data.plans.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><span>{progress(data,plan.id)}% plan progress</span></div><div className="roadmap-hero"><Target/><div><b>{plan.goal}</b><p>Target {fmt(plan.targetDate)}</p></div></div><div className="roadmap-list">{ms.map((m,i)=><div className="roadmap-step" key={m.id}><div className="roadmap-line"><span>{i+1}</span>{i<ms.length-1&&<i/>}</div><MilestoneCard m={m} data={data} toggle={()=>setData(c=>({...c,milestones:c.milestones.map(x=>x.id===m.id?{...x,status:x.status==='Complete'?'In Progress':'Complete'}:x)}))}/></div>)}</div></>}
+function CalendarView({data}:{data:Workspace}){const [cursor,setCursor]=useState(()=>new Date()),year=cursor.getFullYear(),month=cursor.getMonth(),days=new Date(year,month+1,0).getDate(),offset=(new Date(year,month,1).getDay()+6)%7,cells=Array.from({length:42},(_,i)=>i-offset+1);const events=(day:number)=>data.tasks.filter(t=>{const d=date(t.dueDate);return d.getFullYear()===year&&d.getMonth()===month&&d.getDate()===day});return <><div className="calendar-controls"><div><button onClick={()=>setCursor(new Date(year,month-1,1))}>←</button><button onClick={()=>setCursor(new Date())}>Today</button></div><h2>{new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric'}).format(cursor)}</h2><div><button onClick={()=>setCursor(new Date(year,month+1,1))}>→</button></div></div><div className="calendar-card"><div className="weekdays">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x=><b key={x}>{x}</b>)}</div><div className="month-grid">{cells.map((day,i)=><div className={day>=1&&day<=days?'day':'day muted'} key={i}><span>{day>=1&&day<=days?day:''}</span>{day>=1&&day<=days&&events(day).slice(0,3).map(t=><small key={t.id}>{t.title}</small>)}</div>)}</div></div></>}
+function ResourcesView({data,selected,setSelected,setModal}:{data:Workspace;selected:string;setSelected:(v:string)=>void;setModal:(m:Modal)=>void}){const items=data.resources.filter(r=>selected==='all'||r.planId===selected);return <><div className="toolbar"><select value={selected} onChange={e=>setSelected(e.target.value)}><option value="all">All plans</option>{data.plans.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button className="primary" onClick={()=>setModal('resource')}><Plus size={15}/>Add resource</button></div><div className="resource-grid">{items.map(r=><article className="resource-card" key={r.id}><span className="resource-icon"><BookOpen/></span><div><span>{r.kind}</span><h3>{r.title}</h3><p>{r.notes}</p></div>{r.url&&<a href={r.url} target="_blank" rel="noreferrer"><ExternalLink size={15}/></a>}</article>)}</div></>}
+function Insights({data}:{data:Workspace}){const done=data.tasks.filter(t=>t.status==='Complete').length,total=data.tasks.length,completion=Math.round(done/Math.max(total,1)*100),openHours=data.tasks.filter(open).reduce((s,t)=>s+t.estimate,0),risk=data.plans.filter(p=>['At Risk','Behind'].includes(health(data,p))).length;return <><div className={`health-banner ${risk?'risk':''}`}><TrendingUp/><div><b>Workspace health: {risk?'Needs attention':'Healthy'}</b><p>{risk?`${risk} plans need attention.`:'No active plan is currently behind.'}</p></div><strong>{completion}%</strong></div><div className="insights-grid"><div className="insight-card"><h2>Completion</h2><div className="donut"><strong>{completion}%</strong><small>workspace tasks</small></div></div><div className="insight-card"><h2>Open effort</h2><strong className="big-number">{openHours}h</strong><p>Estimated work remaining.</p></div><div className="insight-card"><h2>Milestones</h2><strong className="big-number">{data.milestones.filter(m=>m.status==='Complete').length}</strong><p>Major checkpoints achieved.</p></div></div></>}
+function SearchResults({data,results,openPlan}:{data:Workspace;results:{plans:Plan[];tasks:Task[];milestones:Milestone[];resources:Resource[];notes:Workspace['notes']};openPlan:(id:string)=>void}){return <div className="search-results"><section className="search-group"><div className="section-title"><h2>Plans</h2><span className="count-pill">{results.plans.length}</span></div><div>{results.plans.map(p=><button key={p.id} onClick={()=>openPlan(p.id)}><Target/><span><b>{p.name}</b><small>{p.goal}</small></span></button>)}</div></section><section className="search-group"><div className="section-title"><h2>Tasks & milestones</h2><span className="count-pill">{results.tasks.length+results.milestones.length}</span></div><div>{results.tasks.map(t=><div key={t.id}><CheckCircle2/><span><b>{t.title}</b><small>{data.plans.find(p=>p.id===t.planId)?.name}</small></span></div>)}{results.milestones.map(m=><button key={m.id} onClick={()=>openPlan(m.planId)}><Flag/><span><b>{m.name}</b><small>{m.description}</small></span></button>)}</div></section></div>}
+function TaskModal({plans,milestones,selected,close,save}:{plans:Plan[];milestones:Milestone[];selected:string;close:()=>void;save:(t:Task)=>void}){const [title,setTitle]=useState(''),[planId,setPlanId]=useState(selected!=='all'?selected:plans[0]?.id??''),[milestoneId,setMilestoneId]=useState(''),[priority,setPriority]=useState<Priority>('Medium'),[status,setStatus]=useState<TaskStatus>('To Do'),[dueDate,setDueDate]=useState(addDays(iso(),7)),[estimate,setEstimate]=useState('2'),[tags,setTags]=useState(''),[notes,setNotes]=useState('');return <div className="overlay" onMouseDown={close}><form className="modal" onMouseDown={e=>e.stopPropagation()} onSubmit={e=>{e.preventDefault();if(title&&planId)save({id:crypto.randomUUID(),planId,milestoneId:milestoneId||undefined,title,status,priority,assignee:'You',dueDate,estimate:Number(estimate)||1,tags:tags.split(',').map(x=>x.trim()).filter(Boolean),notes:notes||undefined,subtasks:[],dependencies:[],createdAt:new Date().toISOString()})}}><button type="button" className="close" onClick={close}><X/></button><h2>Create a task</h2><label>Task name<input autoFocus required value={title} onChange={e=>setTitle(e.target.value)}/></label><div className="form-grid"><label>Plan<select value={planId} onChange={e=>{setPlanId(e.target.value);setMilestoneId('')}}>{plans.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Milestone<select value={milestoneId} onChange={e=>setMilestoneId(e.target.value)}><option value="">No milestone</option>{milestones.filter(m=>m.planId===planId).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label></div><div className="form-grid"><label>Status<select value={status} onChange={e=>setStatus(e.target.value as TaskStatus)}>{statuses.map(s=><option key={s}>{s}</option>)}</select></label><label>Priority<select value={priority} onChange={e=>setPriority(e.target.value as Priority)}>{priorities.map(p=><option key={p}>{p}</option>)}</select></label></div><div className="form-grid"><label>Due date<input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></label><label>Estimate<input type="number" min="1" value={estimate} onChange={e=>setEstimate(e.target.value)}/></label></div><label>Tags<input value={tags} onChange={e=>setTags(e.target.value)}/></label><label>Notes<textarea value={notes} onChange={e=>setNotes(e.target.value)}/></label><button className="primary full">Create task</button></form></div>}
+function PlanModal({owner,close,save}:{owner:string;close:()=>void;save:(p:Plan,smart:boolean)=>void}){const [name,setName]=useState(''),[goal,setGoal]=useState(''),[description,setDescription]=useState(''),[startDate,setStartDate]=useState(iso()),[targetDate,setTargetDate]=useState(addDays(iso(),30)),[priority,setPriority]=useState<Priority>('Medium'),[category,setCategory]=useState('Personal'),[color,setColor]=useState('#7f8cff'),[smart,setSmart]=useState(true);return <div className="overlay" onMouseDown={close}><form className="modal plan-modal" onMouseDown={e=>e.stopPropagation()} onSubmit={e=>{e.preventDefault();save({id:crypto.randomUUID(),name,emoji:'◇',description:description||goal,goal,color,startDate,targetDate,priority,status:'Active',category,tags:[],collaborators:[{id:'owner',name:owner,initials:initials(owner),role:'Owner'}],createdAt:new Date().toISOString()},smart)}}><button type="button" className="close" onClick={close}><X/></button><h2>Create a plan</h2><div className="builder-choice"><button type="button" className={smart?'selected':''} onClick={()=>setSmart(true)}><Sparkles/><span><b>Smart starter</b><small>Generate editable milestones and tasks.</small></span></button><button type="button" className={!smart?'selected':''} onClick={()=>setSmart(false)}><FolderKanban/><span><b>Manual plan</b><small>Build the structure yourself.</small></span></button></div><label>Name<input required value={name} onChange={e=>setName(e.target.value)}/></label><label>Main goal<textarea required value={goal} onChange={e=>setGoal(e.target.value)}/></label><label>Description<textarea value={description} onChange={e=>setDescription(e.target.value)}/></label><div className="form-grid"><label>Start<input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}/></label><label>Target<input type="date" min={startDate} value={targetDate} onChange={e=>setTargetDate(e.target.value)}/></label></div><div className="form-grid"><label>Priority<select value={priority} onChange={e=>setPriority(e.target.value as Priority)}>{priorities.map(p=><option key={p}>{p}</option>)}</select></label><label>Category<input value={category} onChange={e=>setCategory(e.target.value)}/></label></div><label>Accent<input type="color" value={color} onChange={e=>setColor(e.target.value)}/></label><button className="primary full">{smart?'Generate starter plan':'Create plan'}</button></form></div>}
+function ResourceModal({plans,milestones,selected,close,save}:{plans:Plan[];milestones:Milestone[];selected:string;close:()=>void;save:(r:Resource)=>void}){const [planId,setPlanId]=useState(selected!=='all'?selected:plans[0]?.id??''),[milestoneId,setMilestoneId]=useState(''),[title,setTitle]=useState(''),[kind,setKind]=useState<ResourceKind>('Link'),[url,setUrl]=useState(''),[notes,setNotes]=useState('');const kinds:ResourceKind[]=['Link','Documentation','Article','Video','Reference','File','Note'];return <div className="overlay" onMouseDown={close}><form className="modal" onMouseDown={e=>e.stopPropagation()} onSubmit={e=>{e.preventDefault();save({id:crypto.randomUUID(),planId,milestoneId:milestoneId||undefined,title,kind,url:url||undefined,notes:notes||undefined,createdAt:new Date().toISOString()})}}><button type="button" className="close" onClick={close}><X/></button><h2>Add resource</h2><label>Title<input required value={title} onChange={e=>setTitle(e.target.value)}/></label><div className="form-grid"><label>Plan<select value={planId} onChange={e=>setPlanId(e.target.value)}>{plans.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Milestone<select value={milestoneId} onChange={e=>setMilestoneId(e.target.value)}><option value="">Whole plan</option>{milestones.filter(m=>m.planId===planId).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label></div><label>Type<select value={kind} onChange={e=>setKind(e.target.value as ResourceKind)}>{kinds.map(k=><option key={k}>{k}</option>)}</select></label><label>URL<input type="url" value={url} onChange={e=>setUrl(e.target.value)}/></label><label>Notes<textarea value={notes} onChange={e=>setNotes(e.target.value)}/></label><button className="primary full">Add resource</button></form></div>}

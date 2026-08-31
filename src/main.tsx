@@ -10,6 +10,7 @@ import './themes.css';
 import './theme-aliases.css';
 import './release-polish.css';
 import './theme-layout.css';
+import './product-upgrade.css';
 
 initializeThemes();
 
