@@ -3,13 +3,14 @@
 ```text
 .
 ├── src/
-│   ├── App.tsx             Product UI, navigation, task/project flows, derived metrics
+│   ├── App.tsx             Product UI, task/project CRUD, calendar, analytics, navigation
 │   ├── types.ts            Workspace / Project / Task domain types
 │   ├── demo.ts             Seed workspace for credential-free review
 │   ├── storage.ts          Validated local persistence boundary
 │   ├── firebase.ts         Optional Firebase Google-auth adapter
 │   ├── ErrorBoundary.tsx   Runtime recovery and local-data reset path
-│   ├── styles.css          Main visual system and responsive layout
+│   ├── styles.css          Core visual system
+│   ├── final-polish.css    Final responsive/mobile and product overrides
 │   └── accessibility.css   Focus visibility and reduced-motion rules
 ├── server/
 │   └── index.ts            Express production host and operational endpoints
@@ -31,12 +32,15 @@
 | Goal | Primary files |
 | --- | --- |
 | Add or change task/project behavior | `src/App.tsx`, `src/types.ts` |
+| Change calendar/analytics behavior | `src/App.tsx` |
 | Change demo seed content | `src/demo.ts` |
 | Change browser persistence | `src/storage.ts` |
 | Connect/replace authentication | `src/firebase.ts` |
-| Add hosted API/database behavior | `server/index.ts` plus a new server data layer |
-| Change layout/design | `src/styles.css` |
+| Add hosted per-user data | new data adapter/API plus `src/firebase.ts` identity |
+| Change core layout/design | `src/styles.css` |
+| Change final mobile/responsive behavior | `src/final-polish.css` |
 | Change accessibility defaults | `src/accessibility.css` |
+| Change production server/config output | `server/index.ts` |
 | Change Render deployment | `render.yaml` |
 | Change CI/preflight behavior | `package.json`, `scripts/*`, `.github/workflows/ci.yml` |
 
@@ -47,4 +51,4 @@ npm run check
 npm run smoke:server
 ```
 
-Use `docs/QA.md` after those automated checks pass.
+Use `docs/QA.md` after those automated checks pass, including a physical-phone pass before publishing screenshots.
