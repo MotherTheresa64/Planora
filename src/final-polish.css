@@ -7,20 +7,12 @@ button:disabled{cursor:not-allowed;opacity:.55}
 .project-card,.metric,.task-card,.insight-card,.calendar-card,.pulse-card{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
 .project-card:hover,.task-card:hover{box-shadow:0 14px 38px #0003}
 .task-card>p{font-size:10px;line-height:1.5;color:var(--muted);margin:6px 0 10px}
-.toolbar select{min-height:40px}
-.modal{max-height:min(90vh,760px);overflow-y:auto}
-.modal textarea{min-height:86px;resize:vertical}
-.empty{border:1px dashed #2b354b;border-radius:14px;padding:24px;text-align:center;color:var(--muted);background:#101624}
-.day.today{outline:1px solid #6f7cff;outline-offset:-1px;background:#151d31}
-.day.today>span{display:inline-grid;place-items:center;min-width:23px;height:23px;border-radius:7px;background:#6f7cff;color:#fff;padding:0 5px}
-.insights-grid{align-items:stretch}
-.insight-card{min-height:220px}
-.insight-card.wide{min-height:260px}
-.big-number{display:block;font:800 46px Manrope;margin:28px 0 4px}
+.toolbar{gap:12px}.toolbar-left{display:flex;align-items:center;gap:9px;min-width:0}.toolbar select{min-height:40px}.danger-button,.delete-task{border:1px solid #50303a;background:#281820;color:#ff98aa;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px}.danger-button{min-height:40px;padding:0 11px;font-size:10px}.delete-task{width:30px;height:30px}.danger-button:hover,.delete-task:hover{background:#3a202a;border-color:#75404e}.column-empty{border:1px dashed #273147;border-radius:9px;padding:18px 8px;text-align:center;color:#59647a;font-size:9px}.modal{max-height:min(90vh,760px);overflow-y:auto}.modal textarea{min-height:86px;resize:vertical}.empty{border:1px dashed #2b354b;border-radius:14px;padding:24px;text-align:center;color:var(--muted);background:#101624}.day.today{outline:1px solid #6f7cff;outline-offset:-1px;background:#151d31}.day.today>span{display:inline-grid;place-items:center;min-width:23px;height:23px;border-radius:7px;background:#6f7cff;color:#fff;padding:0 5px}.insights-suite{display:grid;gap:14px}.health-banner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:15px 18px;border:1px solid #29463f;background:linear-gradient(135deg,#14251f,#101925);border-radius:14px}.health-banner.risk{border-color:#5d3540;background:linear-gradient(135deg,#271820,#121824)}.health-banner p{margin:3px 0 0;color:var(--muted);font-size:10px}.health-banner>strong{font:800 19px Manrope;color:#92a0ff}.insights-grid{align-items:stretch}.insight-card{min-height:220px}.insight-card.wide{min-height:260px}.big-number{display:block;font:800 46px Manrope;margin:28px 0 4px}.insight-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}.insight-heading>div{display:flex;gap:9px;align-items:flex-start}.insight-heading svg{width:18px;color:#8d98ff;margin-top:2px}.insight-heading h2{margin:0;font:700 16px Manrope}.insight-heading p{margin:3px 0 0}.insight-heading>b{font-size:10px;color:#7c879c}.insight-heading.compact{margin-bottom:6px}.project-insight-list,.deadline-list{display:grid;gap:8px}.project-insight-list>div,.deadline-list>div{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid #232c40}.project-insight-list>div:last-child,.deadline-list>div:last-child{border-bottom:0}.project-dot{width:9px;height:9px;border-radius:50%}.project-insight-list div>div,.deadline-list span{display:flex;flex-direction:column;gap:2px;min-width:0}.project-insight-list b,.deadline-list b{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.project-insight-list small,.deadline-list small{font-size:9px;color:var(--muted)}.project-insight-list strong,.deadline-list strong{font-size:10px;color:#a6b0c4}.upcoming-card{grid-column:span 2}
 
 @media(max-width:1100px){
   .app-shell{grid-template-columns:220px 1fr}
   .content{padding-left:28px;padding-right:28px}
+  .upcoming-card{grid-column:auto}
 }
 
 @media(max-width:760px){
@@ -61,6 +53,7 @@ button:disabled{cursor:not-allowed;opacity:.55}
   .insights-grid{grid-template-columns:1fr}
   .insight-card,.insight-card.wide{min-height:0}
   .bars>div{grid-template-columns:72px 1fr 22px}
+  .health-banner{grid-template-columns:auto 1fr}.health-banner>strong{grid-column:2}
   .modal{width:min(100%,520px);padding:22px 18px;border-radius:16px}
   .toast{left:14px;right:14px;bottom:14px;justify-content:center}
 }
@@ -70,10 +63,11 @@ button:disabled{cursor:not-allowed;opacity:.55}
   .page-head{display:grid;grid-template-columns:1fr;gap:16px}
   .page-head .primary{width:100%;min-height:44px}
   .toolbar{align-items:stretch;gap:10px;flex-direction:column}
-  .toolbar select{width:100%}
+  .toolbar-left{display:grid;grid-template-columns:1fr}.toolbar select,.danger-button{width:100%}
   .project-card>p{height:auto}
   .form-grid{grid-template-columns:1fr}
   .pulse-summary{flex-direction:column;gap:5px}
+  .health-banner{padding:14px}
 }
 
 @media(max-width:390px){
@@ -83,4 +77,6 @@ button:disabled{cursor:not-allowed;opacity:.55}
   .search svg{display:none}
   .page-head h1{font-size:27px}
   .metric strong{font-size:25px}
+  .project-insight-list>div,.deadline-list>div{grid-template-columns:auto minmax(0,1fr)}
+  .project-insight-list strong,.deadline-list strong{grid-column:2}
 }
