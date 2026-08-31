@@ -2,6 +2,8 @@
 
 **Plan clearly. Ship calmly.** Planora is a production-minded project-planning SaaS concept built with React and TypeScript. It is designed to demonstrate real application state modeling, responsive product UI, workflow logic, optional authentication, CI, and deployable Node hosting—not just static dashboard screens.
 
+**Live demo:** https://planora-zlxv.onrender.com
+
 ## What works today
 
 - Responsive workspace dashboard with live completion, workload, priority, and focus metrics
