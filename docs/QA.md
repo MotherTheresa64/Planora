@@ -11,12 +11,27 @@ Use this after a local build and again against the deployed Render URL.
 - [ ] Error boundary presents a recovery screen if a render error occurs.
 - [ ] Reset restores the sample workspace without clearing unrelated browser storage.
 
+## Appearance / personalization
+
+- [ ] Theme control is reachable by mouse, touch, and keyboard.
+- [ ] Midnight, Aurora, Ember, and Daybreak can each be selected.
+- [ ] Selected theme survives a hard refresh.
+- [ ] Browser theme-color changes with the active theme.
+- [ ] Daybreak remains readable across sidebar, cards, board, calendar, insights, forms, overlays, and toasts.
+- [ ] All dark themes maintain readable contrast across the same surfaces.
+- [ ] Dynamic completion ring remains numerically accurate after switching themes.
+- [ ] Opening/closing the appearance panel does not alter workspace data.
+- [ ] Escape closes the appearance panel.
+- [ ] Theme panel fits within phone viewport and remains scrollable if needed.
+- [ ] Success toasts never sit underneath the theme control.
+
 ## Navigation
 
 - [ ] Overview, Projects, My tasks, Calendar, and Insights all render.
 - [ ] Sidebar project selection opens the correct project.
 - [ ] My tasks only shows tasks assigned to `NR` and is not stuck on a prior project filter.
 - [ ] Mobile sidebar opens/closes without horizontal page overflow.
+- [ ] Mobile menu displays a backdrop and remains above underlying content.
 - [ ] `Ctrl/Cmd+K` focuses search.
 - [ ] Escape closes active modal/mobile-navigation layers.
 
