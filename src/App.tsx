@@ -3,7 +3,8 @@ import type {ReactNode} from 'react';
 import {
   LayoutDashboard,FolderKanban,CalendarDays,BarChart3,Search,Plus,Bell,
   ChevronDown,CheckCircle2,Clock3,CircleDot,Flame,Sparkles,X,RotateCcw,
-  Menu,Command,MoreHorizontal,ArrowUpRight
+  Menu,Command,MoreHorizontal,ArrowUpRight,Trash2,TrendingUp,AlertTriangle,
+  CalendarClock,Gauge
 } from 'lucide-react';
 import type {Priority,Project,Status,Task,Workspace} from './types';
 import {loadWorkspace,resetWorkspace,saveWorkspace} from './storage';
@@ -26,6 +27,13 @@ function greeting(){
   const hour=new Date().getHours();
   return hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
 }
+function viewDescription(view:View){
+  if(view==='Overview')return 'Here’s what needs your attention and what’s moving forward.';
+  if(view==='Projects')return 'Move work from idea to done across every active project.';
+  if(view==='My tasks')return 'Your assigned work, prioritized and ready to move.';
+  if(view==='Calendar')return 'See deadlines in context and spot busy stretches before they happen.';
+  return 'Understand workload, delivery health, priorities, and upcoming deadlines.';
+}
 function formatDateInput(value:string){
   const [year,month,day]=value.split('-').map(Number);
   if(!year||!month||!day)return value;
@@ -35,6 +43,11 @@ function projectProgress(data:Workspace,projectId:string){
   const projectTasks=data.tasks.filter(t=>t.projectId===projectId);
   if(!projectTasks.length)return 0;
   return Math.round(projectTasks.filter(t=>t.status==='Done').length/projectTasks.length*100);
+}
+function taskDueDate(task:Task){
+  const year=new Date().getFullYear();
+  const parsed=new Date(`${task.due}, ${year}`);
+  return Number.isNaN(parsed.getTime())?new Date(8640000000000000):parsed;
 }
 
 export default function App(){
@@ -57,6 +70,9 @@ export default function App(){
     const onKey=(event:KeyboardEvent)=>{
       if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){
         event.preventDefault();searchRef.current?.focus();
+      }
+      if(event.key==='Escape'){
+        setModal(null);setMenu(false);
       }
     };
     window.addEventListener('keydown',onKey);
@@ -85,6 +101,10 @@ export default function App(){
     setData(current=>({...current,tasks:current.tasks.map(t=>t.id===id?{...t,status}:t)}));
     setToast(status==='Done'?'Task completed':`Moved to ${status}`);
   };
+  const deleteTask=(id:string)=>{
+    setData(current=>({...current,tasks:current.tasks.filter(task=>task.id!==id)}));
+    setToast('Task deleted');
+  };
   const addTask=(task:Task)=>{
     setData(current=>({...current,tasks:[task,...current.tasks]}));
     setModal(null);setToast('Task created');
@@ -92,6 +112,13 @@ export default function App(){
   const addProject=(project:Project)=>{
     setData(current=>({...current,projects:[project,...current.projects]}));
     setSelectedProject(project.id);setView('Projects');setModal(null);setToast('Project created');
+  };
+  const deleteProject=(id:string)=>{
+    const project=data.projects.find(item=>item.id===id);
+    if(!project)return;
+    if(!window.confirm(`Delete “${project.name}” and all of its tasks?`))return;
+    setData(current=>({projects:current.projects.filter(item=>item.id!==id),tasks:current.tasks.filter(task=>task.projectId!==id)}));
+    setSelectedProject('all');setToast('Project deleted');
   };
   const signIn=async()=>{
     if(!firebaseReady){setToast('Demo mode — add Firebase keys to enable Google sign-in');return}
@@ -101,15 +128,18 @@ export default function App(){
   const reset=()=>{
     setData(resetWorkspace());setSelectedProject('all');setQuery('');setView('Overview');setToast('Demo workspace reset');
   };
+  const chooseView=(next:View)=>{
+    setView(next);if(next==='My tasks')setSelectedProject('all');setMenu(false);
+  };
 
   return <div className="app-shell">
     <aside className={menu?'sidebar open':'sidebar'}>
       <div className="brand"><span className="brand-mark">P</span><span>planora</span></div>
       <button className="workspace" onClick={()=>setToast('Northstar is the active workspace')}><span className="avatar small">NR</span><span><b>Northstar</b><small>Personal workspace</small></span><ChevronDown size={15}/></button>
-      <nav>{nav.map(([label,Icon])=><button key={label} className={view===label?'nav active':'nav'} onClick={()=>{setView(label);if(label==='My tasks')setSelectedProject('all');setMenu(false)}}><Icon size={18}/>{label}</button>)}</nav>
+      <nav>{nav.map(([label,Icon])=><button key={label} className={view===label?'nav active':'nav'} onClick={()=>chooseView(label)}><Icon size={18}/>{label}</button>)}</nav>
       <div className="side-label">Projects <button onClick={()=>setModal('project')} aria-label="Create project"><Plus size={15}/></button></div>
       <div className="project-nav">{data.projects.map(project=><button key={project.id} onClick={()=>{setSelectedProject(project.id);setView('Projects');setMenu(false)}}><span style={{background:project.color}}/>{project.name}</button>)}</div>
-      <div className="sidebar-bottom"><div className="focus-card"><Sparkles size={18}/><b>Focus mode</b><p>Quiet the noise and work one task at a time.</p><button onClick={()=>{setView('My tasks');setQuery('');setToast('Focus view opened')}}>Start focus</button></div><button className="reset" onClick={reset}><RotateCcw size={15}/> Reset demo</button></div>
+      <div className="sidebar-bottom"><div className="focus-card"><Sparkles size={18}/><b>Focus mode</b><p>Quiet the noise and work one task at a time.</p><button onClick={()=>{setView('My tasks');setQuery('');setMenu(false);setToast('Focus view opened')}}>Start focus</button></div><button className="reset" onClick={reset}><RotateCcw size={15}/> Reset demo</button></div>
     </aside>
 
     <main>
@@ -120,7 +150,7 @@ export default function App(){
       </header>
 
       <section className="content">
-        <div className="page-head"><div><p className="eyebrow">{todayLabel()}</p><h1>{view==='Overview'?`${greeting()}, Noah.`:view}</h1><p>{view==='Overview'?'Here’s what needs your attention and what’s moving forward.':'A clear view of your work, without the clutter.'}</p></div><button className="primary" onClick={()=>setModal('task')} disabled={!data.projects.length}><Plus size={17}/> New task</button></div>
+        <div className="page-head"><div><p className="eyebrow">{todayLabel()}</p><h1>{view==='Overview'?`${greeting()}, Noah.`:view}</h1><p>{viewDescription(view)}</p></div><button className="primary" onClick={()=>setModal('task')} disabled={!data.projects.length}><Plus size={17}/> New task</button></div>
 
         {view==='Overview'&&<>
           <div className="metric-grid">
@@ -131,10 +161,10 @@ export default function App(){
           </div>
           <div className="section-title"><div><h2>Active projects</h2><p>Your highest-signal workspaces.</p></div><button className="text-button" onClick={()=>{setSelectedProject('all');setView('Projects')}}>View all <ArrowUpRight size={15}/></button></div>
           <div className="projects-grid">{data.projects.map(project=><ProjectCard key={project.id} project={project} progress={projectProgress(data,project.id)} taskCount={data.tasks.filter(t=>t.projectId===project.id&&t.status!=='Done').length} onOpen={()=>{setSelectedProject(project.id);setView('Projects')}}/>)}</div>
-          <div className="two-col"><div><div className="section-title"><div><h2>{query?'Search results':'Priority queue'}</h2><p>{query?`${matchingTasks.length} matching tasks`:'What deserves focus next.'}</p></div></div><div className="task-list">{matchingTasks.filter(t=>t.status!=='Done').slice(0,5).map(task=><TaskRow key={task.id} task={task} project={data.projects.find(p=>p.id===task.projectId)} onAdvance={()=>updateTask(task.id,nextStatus(task.status))}/>)}</div></div><div><div className="section-title"><div><h2>Workspace pulse</h2><p>Current workflow distribution.</p></div></div><Pulse data={data}/></div></div>
+          <div className="two-col"><div><div className="section-title"><div><h2>{query?'Search results':'Priority queue'}</h2><p>{query?`${matchingTasks.length} matching tasks`:'What deserves focus next.'}</p></div></div><div className="task-list">{matchingTasks.filter(t=>t.status!=='Done').slice(0,5).map(task=><TaskRow key={task.id} task={task} project={data.projects.find(p=>p.id===task.projectId)} onAdvance={()=>updateTask(task.id,nextStatus(task.status))}/>)}{matchingTasks.filter(t=>t.status!=='Done').length===0&&<div className="empty">Nothing needs attention here.</div>}</div></div><div><div className="section-title"><div><h2>Workspace pulse</h2><p>Current workflow distribution.</p></div></div><Pulse data={data}/></div></div>
         </>}
 
-        {(view==='Projects'||view==='My tasks')&&<Board data={data} tasks={boardTasks} selected={view==='My tasks'?'all':selectedProject} setSelected={setSelectedProject} updateTask={updateTask} hideProjectFilter={view==='My tasks'}/>} 
+        {(view==='Projects'||view==='My tasks')&&<Board data={data} tasks={boardTasks} selected={view==='My tasks'?'all':selectedProject} setSelected={setSelectedProject} updateTask={updateTask} deleteTask={deleteTask} deleteProject={deleteProject} hideProjectFilter={view==='My tasks'}/>} 
         {view==='Calendar'&&<Calendar data={data}/>} 
         {view==='Insights'&&<Insights data={data}/>} 
       </section>
@@ -162,10 +192,10 @@ function TaskRow({task,project,onAdvance}:{task:Task;project?:Project;onAdvance:
   return <div className="task-row"><button className={`status-dot ${task.status==='Done'?'complete':''}`} onClick={onAdvance} aria-label={`Move ${task.title} forward`}>{task.status==='Done'&&'✓'}</button><div className="task-main"><b>{task.title}</b><small><span style={{background:project?.color}}/>{project?.name??'Unassigned'} · Due {task.due}</small></div><PriorityBadge priority={task.priority}/><span className="avatar mini">{task.assignee}</span></div>
 }
 
-function Board({data,tasks,selected,setSelected,updateTask,hideProjectFilter=false}:{data:Workspace;tasks:Task[];selected:string;setSelected:(value:string)=>void;updateTask:(id:string,status:Status)=>void;hideProjectFilter?:boolean}){
+function Board({data,tasks,selected,setSelected,updateTask,deleteTask,deleteProject,hideProjectFilter=false}:{data:Workspace;tasks:Task[];selected:string;setSelected:(value:string)=>void;updateTask:(id:string,status:Status)=>void;deleteTask:(id:string)=>void;deleteProject:(id:string)=>void;hideProjectFilter?:boolean}){
   return <>
-    <div className="toolbar">{!hideProjectFilter&&<select value={selected} onChange={e=>setSelected(e.target.value)}><option value="all">All projects</option>{data.projects.map(project=><option key={project.id} value={project.id}>{project.name}</option>)}</select>}<span>{tasks.length} {tasks.length===1?'task':'tasks'}</span></div>
-    <div className="board">{statuses.map(status=><section className="column" key={status}><div className="column-head"><b>{status}</b><span>{tasks.filter(t=>t.status===status).length}</span></div>{tasks.filter(t=>t.status===status).map(task=><article className="task-card" key={task.id}><div className="task-card-top"><PriorityBadge priority={task.priority}/><button onClick={()=>updateTask(task.id,nextStatus(task.status))} aria-label={`Move ${task.title} forward`}><MoreHorizontal size={17}/></button></div><h3>{task.title}</h3>{task.note&&<p>{task.note}</p>}<div className="tags">{task.tags.map(tag=><span key={tag}>{tag}</span>)}</div><div className="task-card-foot"><span className="avatar mini">{task.assignee}</span><small>{task.due} · {task.estimate}h</small></div><button className="advance" onClick={()=>updateTask(task.id,nextStatus(task.status))}>Move to {nextStatus(task.status)} →</button></article>)}</section>)}</div>
+    <div className="toolbar"><div className="toolbar-left">{!hideProjectFilter&&<select value={selected} onChange={e=>setSelected(e.target.value)}><option value="all">All projects</option>{data.projects.map(project=><option key={project.id} value={project.id}>{project.name}</option>)}</select>}{!hideProjectFilter&&selected!=='all'&&<button className="danger-button" onClick={()=>deleteProject(selected)}><Trash2 size={14}/>Delete project</button>}</div><span>{tasks.length} {tasks.length===1?'task':'tasks'}</span></div>
+    <div className="board">{statuses.map(status=><section className="column" key={status}><div className="column-head"><b>{status}</b><span>{tasks.filter(t=>t.status===status).length}</span></div>{tasks.filter(t=>t.status===status).map(task=><article className="task-card" key={task.id}><div className="task-card-top"><PriorityBadge priority={task.priority}/><button className="delete-task" onClick={()=>deleteTask(task.id)} aria-label={`Delete ${task.title}`} title="Delete task"><Trash2 size={15}/></button></div><h3>{task.title}</h3>{task.note&&<p>{task.note}</p>}<div className="tags">{task.tags.map(tag=><span key={tag}>{tag}</span>)}</div><div className="task-card-foot"><span className="avatar mini">{task.assignee}</span><small>{task.due} · {task.estimate}h</small></div><button className="advance" onClick={()=>updateTask(task.id,nextStatus(task.status))}>Move to {nextStatus(task.status)} →</button></article>)}{tasks.filter(t=>t.status===status).length===0&&<div className="column-empty">No tasks</div>}</section>)}</div>
   </>
 }
 
@@ -180,15 +210,31 @@ function Calendar({data}:{data:Workspace}){
     const [m,d]=task.due.split(' ');
     return monthShort.indexOf(m)===month&&Number(d)===day;
   };
-  return <div className="calendar-card"><div className="calendar-top"><h2>{monthNames[month]} {year}</h2><span>{data.tasks.filter(task=>{const [m]=task.due.split(' ');return monthShort.indexOf(m)===month}).length} scheduled tasks</span></div><div className="weekdays">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><b key={day}>{day}</b>)}</div><div className="month-grid">{cells.map((day,index)=><div className={day<1||day>daysInMonth?'day muted':'day'} key={index}><span>{day<1?new Date(year,month,day).getDate():day>daysInMonth?day-daysInMonth:day}</span>{day>=1&&day<=daysInMonth&&data.tasks.filter(task=>taskOnDay(task,day)).slice(0,2).map(task=><small key={task.id}>{task.title}</small>)}</div>)}</div></div>
+  const monthTasks=data.tasks.filter(task=>{const [m]=task.due.split(' ');return monthShort.indexOf(m)===month});
+  return <div className="calendar-card"><div className="calendar-top"><h2>{monthNames[month]} {year}</h2><span>{monthTasks.length} scheduled tasks</span></div><div className="weekdays">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><b key={day}>{day}</b>)}</div><div className="month-grid">{cells.map((day,index)=>{const inMonth=day>=1&&day<=daysInMonth;const isToday=inMonth&&day===now.getDate();return <div className={`${inMonth?'day':'day muted'}${isToday?' today':''}`} key={index}><span>{day<1?new Date(year,month,day).getDate():day>daysInMonth?day-daysInMonth:day}</span>{inMonth&&data.tasks.filter(task=>taskOnDay(task,day)).slice(0,3).map(task=><small key={task.id} title={task.title}>{task.title}</small>)}</div>})}</div></div>
 }
 
 function Insights({data}:{data:Workspace}){
   const byStatus=statuses.map(status=>({status,count:data.tasks.filter(t=>t.status===status).length}));
   const max=Math.max(...byStatus.map(item=>item.count),1);
-  const completion=Math.round(data.tasks.filter(t=>t.status==='Done').length/Math.max(data.tasks.length,1)*100);
+  const completeTasks=data.tasks.filter(t=>t.status==='Done');
+  const completion=Math.round(completeTasks.length/Math.max(data.tasks.length,1)*100);
   const highOpen=data.tasks.filter(t=>(t.priority==='High'||t.priority==='Urgent')&&t.status!=='Done').length;
-  return <div className="insights-grid"><div className="insight-card wide"><div className="section-title"><div><h2>Work distribution</h2><p>Tasks by workflow stage.</p></div></div><div className="bars">{byStatus.map(({status,count})=><div key={status}><span>{status}</span><div><i style={{width:`${count/max*100}%`}}/></div><b>{count}</b></div>)}</div></div><div className="insight-card"><h2>Completion</h2><div className="donut"><strong>{completion}%</strong><small>workspace tasks</small></div><p>Completion is calculated directly from your current task state.</p></div><div className="insight-card"><h2>Priority load</h2><strong className="big-number">{highOpen}</strong><p>High or urgent tasks are still open.</p><span className="positive">{highOpen<=2?'Manageable load':'Needs attention'}</span></div></div>
+  const openHours=data.tasks.filter(t=>t.status!=='Done').reduce((sum,t)=>sum+t.estimate,0);
+  const doneHours=completeTasks.reduce((sum,t)=>sum+t.estimate,0);
+  const upcoming=[...data.tasks].filter(t=>t.status!=='Done').sort((a,b)=>taskDueDate(a).getTime()-taskDueDate(b).getTime()).slice(0,4);
+  const projectStats=data.projects.map(project=>({project,hours:data.tasks.filter(t=>t.projectId===project.id&&t.status!=='Done').reduce((sum,t)=>sum+t.estimate,0),progress:projectProgress(data,project.id)})).sort((a,b)=>b.hours-a.hours);
+  const health=highOpen===0?'Healthy':highOpen<=2?'Watch':'At risk';
+  return <div className="insights-suite">
+    <div className={`health-banner ${health==='At risk'?'risk':''}`}><span className="metric-icon"><Gauge/></span><div><b>Workspace health: {health}</b><p>{highOpen?`${highOpen} high-priority task${highOpen===1?'':'s'} need attention.`:'No high-priority blockers are open.'}</p></div><strong>{completion}% complete</strong></div>
+    <div className="insights-grid">
+      <div className="insight-card wide"><div className="insight-heading"><div><TrendingUp/><span><h2>Work distribution</h2><p>Tasks by workflow stage.</p></span></div><b>{data.tasks.length} total</b></div><div className="bars">{byStatus.map(({status,count})=><div key={status}><span>{status}</span><div><i style={{width:`${count/max*100}%`}}/></div><b>{count}</b></div>)}</div></div>
+      <div className="insight-card"><h2>Completion</h2><div className="donut" style={{background:`radial-gradient(circle,#111726 55%,transparent 57%),conic-gradient(#8490ff 0 ${completion}%,#252e41 ${completion}% 100%)`}}><strong>{completion}%</strong><small>workspace tasks</small></div><p>{doneHours}h of planned work has reached Done.</p></div>
+      <div className="insight-card"><div className="insight-heading compact"><div><AlertTriangle/><span><h2>Priority load</h2><p>High-impact open work.</p></span></div></div><strong className="big-number">{highOpen}</strong><p>{openHours}h of estimated work remains across the workspace.</p><span className="positive">{highOpen<=2?'Manageable load':'Needs attention'}</span></div>
+      <div className="insight-card wide"><div className="insight-heading"><div><FolderKanban/><span><h2>Workload by project</h2><p>Open estimated hours and completion.</p></span></div></div><div className="project-insight-list">{projectStats.map(({project,hours,progress})=><div key={project.id}><span className="project-dot" style={{background:project.color}}/><div><b>{project.name}</b><small>{progress}% complete</small></div><strong>{hours}h open</strong></div>)}</div></div>
+      <div className="insight-card upcoming-card"><div className="insight-heading compact"><div><CalendarClock/><span><h2>Upcoming</h2><p>Nearest open deadlines.</p></span></div></div><div className="deadline-list">{upcoming.map(task=><div key={task.id}><span><b>{task.title}</b><small>{data.projects.find(project=>project.id===task.projectId)?.name??'Project'}</small></span><strong>{task.due}</strong></div>)}{upcoming.length===0&&<p>Everything is complete.</p>}</div></div>
+    </div>
+  </div>
 }
 
 function Pulse({data}:{data:Workspace}){
