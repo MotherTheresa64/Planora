@@ -7,6 +7,7 @@ import './styles.css';
 import './accessibility.css';
 import './final-polish.css';
 import './themes.css';
+import './theme-aliases.css';
 import './release-polish.css';
 
 initializeThemes();
