@@ -1,0 +1,1 @@
+html[data-theme]{--panel:var(--theme-surface);--line:var(--theme-line);--muted:var(--theme-muted);--text:var(--theme-text)}
