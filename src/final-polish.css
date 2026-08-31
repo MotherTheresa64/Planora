@@ -1,0 +1,86 @@
+body{overflow-x:hidden}
+button,a,[role="button"]{-webkit-tap-highlight-color:transparent}
+button:not(:disabled){cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.55}
+.sidebar{overflow-y:auto;transition:transform .22s ease,box-shadow .22s ease}
+.content{width:100%}
+.project-card,.metric,.task-card,.insight-card,.calendar-card,.pulse-card{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.project-card:hover,.task-card:hover{box-shadow:0 14px 38px #0003}
+.task-card>p{font-size:10px;line-height:1.5;color:var(--muted);margin:6px 0 10px}
+.toolbar select{min-height:40px}
+.modal{max-height:min(90vh,760px);overflow-y:auto}
+.modal textarea{min-height:86px;resize:vertical}
+.empty{border:1px dashed #2b354b;border-radius:14px;padding:24px;text-align:center;color:var(--muted);background:#101624}
+.day.today{outline:1px solid #6f7cff;outline-offset:-1px;background:#151d31}
+.day.today>span{display:inline-grid;place-items:center;min-width:23px;height:23px;border-radius:7px;background:#6f7cff;color:#fff;padding:0 5px}
+.insights-grid{align-items:stretch}
+.insight-card{min-height:220px}
+.insight-card.wide{min-height:260px}
+.big-number{display:block;font:800 46px Manrope;margin:28px 0 4px}
+
+@media(max-width:1100px){
+  .app-shell{grid-template-columns:220px 1fr}
+  .content{padding-left:28px;padding-right:28px}
+}
+
+@media(max-width:760px){
+  .app-shell{min-height:100dvh}
+  .sidebar{width:min(86vw,300px);height:100dvh;box-shadow:none}
+  .sidebar.open{box-shadow:22px 0 70px #0009}
+  header{height:62px;gap:6px}
+  .mobile-menu,.icon-btn,.user-button{min-width:42px;min-height:42px;display:grid;place-items:center}
+  .user-button{display:flex}
+  .search{margin:0 4px;min-width:0}
+  .search input{font-size:16px}
+  .content{padding:22px 14px 52px}
+  .page-head{margin-bottom:22px;align-items:start}
+  .page-head h1{font-size:30px}
+  .page-head p:not(.eyebrow){line-height:1.5}
+  .metric-grid{gap:10px}
+  .metric{padding:15px}
+  .projects-grid{display:grid;grid-template-columns:1fr;overflow:visible}
+  .project-card{min-width:0}
+  .two-col{gap:8px}
+  .section-title{margin-top:24px}
+  .task-row{grid-template-columns:auto minmax(0,1fr) auto;padding:12px 11px}
+  .task-row>.avatar{display:none}
+  .task-main{min-width:0}
+  .task-main b,.task-main small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .board{grid-template-columns:1fr;overflow:visible;gap:14px}
+  .column{min-width:0;width:100%}
+  .task-card{margin-bottom:8px}
+  .advance{min-height:38px;font-size:10px}
+  .calendar-card{padding:12px;overflow:visible}
+  .calendar-top{gap:8px;align-items:flex-start}
+  .calendar-top h2{margin:0;font-size:18px}
+  .weekdays,.month-grid{min-width:0!important}
+  .weekdays b{font-size:9px;text-align:center;padding:8px 0}
+  .day{min-height:66px;padding:5px;font-size:10px;overflow:hidden}
+  .day>span{font-size:9px}
+  .day small{font-size:0;width:7px;height:7px;border-radius:50%;padding:0;margin:4px 2px 0 0;display:inline-block;background:#7e89ff}
+  .insights-grid{grid-template-columns:1fr}
+  .insight-card,.insight-card.wide{min-height:0}
+  .bars>div{grid-template-columns:72px 1fr 22px}
+  .modal{width:min(100%,520px);padding:22px 18px;border-radius:16px}
+  .toast{left:14px;right:14px;bottom:14px;justify-content:center}
+}
+
+@media(max-width:560px){
+  .metric-grid{grid-template-columns:1fr}
+  .page-head{display:grid;grid-template-columns:1fr;gap:16px}
+  .page-head .primary{width:100%;min-height:44px}
+  .toolbar{align-items:stretch;gap:10px;flex-direction:column}
+  .toolbar select{width:100%}
+  .project-card>p{height:auto}
+  .form-grid{grid-template-columns:1fr}
+  .pulse-summary{flex-direction:column;gap:5px}
+}
+
+@media(max-width:390px){
+  .content{padding-left:10px;padding-right:10px}
+  header{padding:0 8px}
+  .search{gap:5px}
+  .search svg{display:none}
+  .page-head h1{font-size:27px}
+  .metric strong{font-size:25px}
+}
