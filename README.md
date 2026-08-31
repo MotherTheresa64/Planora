@@ -7,6 +7,8 @@
 ## What works today
 
 - Responsive workspace dashboard with live completion, workload, priority, and focus metrics
+- Four complete user-selectable themes — **Midnight, Aurora, Ember, and Daybreak** — with device-local persistence and browser-chrome color updates
+- Theme-aware navigation, Kanban boards, calendar, analytics, forms, overlays, focus states, and mobile layouts rather than accent-only recoloring
 - Multi-project Kanban workflow with Backlog, In progress, Review, and Done states
 - Mobile-native Kanban layout that reformats into readable stacked workflow columns on small screens
 - Project progress derived from actual task completion instead of hard-coded percentages
@@ -18,21 +20,22 @@
 - Task deletion and project deletion, including cleanup of tasks owned by a deleted project
 - Rolling current-month calendar populated from task due dates, with current-day highlighting and phone-friendly task indicators
 - Expanded analytics with workspace health, completion, workflow distribution, project workload, priority load, open estimated hours, and upcoming deadlines
+- Theme-safe dynamic completion visualization that remains numerically accurate after appearance changes
 - Contextual empty states and page-specific guidance instead of placeholder screens
 - Validated browser persistence with graceful recovery from malformed or blocked storage
 - One-click sample-workspace reset
 - Branded runtime error recovery instead of blank-screen failure
 - Google sign-in support when Firebase environment variables are configured
-- Installable web-app metadata, canonical production metadata, reduced-motion support, and responsive accessibility safeguards
+- Installable web-app metadata, canonical production metadata, reduced-motion support, visible focus treatment, mobile navigation backdrops, and polished feedback placement
 - Express production host with health/config endpoints, security headers, caching policy, API 404 handling, and SPA fallback
 - Render auto-deploy from `main` with `/api/health` health checks
 - GitHub Actions and Render builds gated on the same full verification command
 
 ## Stack
 
-**Frontend:** React 19, TypeScript, Vite, Lucide, custom responsive CSS  
+**Frontend:** React 19, TypeScript, Vite, Lucide, custom responsive/themed CSS  
 **Auth:** Firebase Authentication (optional final integration)  
-**Persistence:** typed local-first browser workspace  
+**Persistence:** typed local-first browser workspace + persisted appearance preference  
 **Hosting:** Express 5 + Render  
 **Quality:** strict TypeScript, GitHub Actions, deterministic pinned dependency versions
 
@@ -45,7 +48,7 @@ npm install
 npm run dev
 ```
 
-The Vite client runs at `http://localhost:5173`. Planora is fully usable without credentials and stores workspace changes in `localStorage`.
+The Vite client runs at `http://localhost:5173`. Planora is fully usable without credentials and stores workspace changes and theme preference in `localStorage`.
 
 Full preflight:
 
@@ -71,7 +74,7 @@ Enable Google as a sign-in provider in Firebase Authentication. If these values 
 
 ## Persistence boundary
 
-The complete product experience currently uses a typed, versioned browser workspace for persistence. The repository isolates persistence (`storage.ts`), authentication (`firebase.ts`), domain types (`types.ts`), and production hosting (`server/index.ts`) so hosted per-user persistence can replace local storage without requiring a UI rewrite.
+The complete product experience currently uses a typed, versioned browser workspace for persistence. The repository isolates persistence (`storage.ts`), authentication (`firebase.ts`), domain types (`types.ts`), appearance (`theme.ts`), and production hosting (`server/index.ts`) so hosted per-user persistence can replace local storage without requiring a UI rewrite.
 
 For cross-device user accounts, the remaining production integration is Firebase Authentication plus a hosted datastore such as Firestore keyed to the authenticated user. The current live demo intentionally keeps each browser session self-contained.
 
@@ -101,4 +104,4 @@ CI uses the same `npm run check` contract, keeping local, CI, and Render verific
 
 ## Portfolio intent
 
-Planora demonstrates the parts of frontend/full-stack work that are easy to miss in tutorial projects: derived state, data integrity, workflow transitions, destructive actions, keyboard interaction, analytics, responsive layouts, graceful credential handling, deployment configuration, production server behavior, and a clean path from local-first persistence to authenticated hosted data.
+Planora demonstrates the parts of frontend/full-stack work that are easy to miss in tutorial projects: derived state, data integrity, workflow transitions, destructive actions, keyboard interaction, analytics, persisted personalization, responsive layouts, graceful credential handling, deployment configuration, production server behavior, and a clean path from local-first persistence to authenticated hosted data.
