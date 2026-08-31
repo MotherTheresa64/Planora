@@ -1,6 +1,6 @@
 # Planora
 
-**Plan clearly. Ship calmly.** Planora is a production-minded project-planning SaaS concept built with React and TypeScript. It is designed to demonstrate real application state modeling, responsive product UI, workflow logic, optional authentication, CI, and deployable Node hosting—not just static dashboard screens.
+**Plan clearly. Ship calmly.** Planora is a production-minded project-planning SaaS application built with React and TypeScript. It demonstrates real application state modeling, responsive product UI, workflow logic, optional authentication, CI, and deployable Node hosting—not just static dashboard screens.
 
 **Live demo:** https://planora-zlxv.onrender.com
 
@@ -8,26 +8,32 @@
 
 - Responsive workspace dashboard with live completion, workload, priority, and focus metrics
 - Multi-project Kanban workflow with Backlog, In progress, Review, and Done states
+- Mobile-native Kanban layout that reformats into readable stacked workflow columns on small screens
 - Project progress derived from actual task completion instead of hard-coded percentages
 - Project filtering plus a true assignee-specific **My tasks** view
 - Global task search across titles, tags, assignees, project names, and notes
 - `Ctrl/Cmd + K` keyboard shortcut to focus search
 - Task creation with project, priority, due date, estimate, tags, and notes
 - Project creation with due date and configurable accent color
-- Rolling current-month calendar populated from task due dates
-- Dynamic insights generated from the active workspace state
-- Validated browser persistence with graceful recovery from malformed/blocked storage
+- Task deletion and project deletion, including cleanup of tasks owned by a deleted project
+- Rolling current-month calendar populated from task due dates, with current-day highlighting and phone-friendly task indicators
+- Expanded analytics with workspace health, completion, workflow distribution, project workload, priority load, open estimated hours, and upcoming deadlines
+- Contextual empty states and page-specific guidance instead of placeholder screens
+- Validated browser persistence with graceful recovery from malformed or blocked storage
+- One-click sample-workspace reset
 - Branded runtime error recovery instead of blank-screen failure
 - Google sign-in support when Firebase environment variables are configured
-- Installable web-app metadata and responsive accessibility safeguards
-- Express production host with health/config endpoints, security headers, caching policy, and SPA fallback
-- Render Blueprint and GitHub Actions gated on the same full verification command
+- Installable web-app metadata, canonical production metadata, reduced-motion support, and responsive accessibility safeguards
+- Express production host with health/config endpoints, security headers, caching policy, API 404 handling, and SPA fallback
+- Render auto-deploy from `main` with `/api/health` health checks
+- GitHub Actions and Render builds gated on the same full verification command
 
 ## Stack
 
-**Frontend:** React 19, TypeScript, Vite, Lucide, custom CSS  
-**Auth:** Firebase Authentication (optional)  
-**Hosting:** Express 5, Render Blueprint  
+**Frontend:** React 19, TypeScript, Vite, Lucide, custom responsive CSS  
+**Auth:** Firebase Authentication (optional final integration)  
+**Persistence:** typed local-first browser workspace  
+**Hosting:** Express 5 + Render  
 **Quality:** strict TypeScript, GitHub Actions, deterministic pinned dependency versions
 
 ## Run locally
@@ -39,15 +45,16 @@ npm install
 npm run dev
 ```
 
-The Vite client runs at `http://localhost:5173`. Planora is fully usable without credentials and stores demo workspace changes in `localStorage`.
+The Vite client runs at `http://localhost:5173`. Planora is fully usable without credentials and stores workspace changes in `localStorage`.
 
 Full preflight:
 
 ```bash
 npm run check
+npm run smoke:server
 ```
 
-That command typechecks both targets, builds the client/server, and verifies the required production artifacts. Afterward, `npm start` serves the compiled SPA through Express.
+`npm run check` typechecks both targets, builds the client/server, and verifies the required production artifacts. `npm run smoke:server` boots the compiled Express app and verifies the health/API contract.
 
 ## Firebase authentication
 
@@ -60,11 +67,13 @@ VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
 ```
 
-Enable Google as a sign-in provider in Firebase Authentication. If these values are absent, Planora deliberately stays in credential-free demo mode rather than failing at startup.
+Enable Google as a sign-in provider in Firebase Authentication. If these values are absent, Planora deliberately remains usable in credential-free local-first mode rather than failing at startup.
 
-## Production boundary
+## Persistence boundary
 
-The complete product experience currently uses a typed, versioned browser workspace for persistence. The repository already isolates persistence (`storage.ts`), authentication (`firebase.ts`), domain types (`types.ts`), and production hosting (`server/index.ts`) so a remote database/API layer can replace local persistence without requiring a UI rewrite.
+The complete product experience currently uses a typed, versioned browser workspace for persistence. The repository isolates persistence (`storage.ts`), authentication (`firebase.ts`), domain types (`types.ts`), and production hosting (`server/index.ts`) so hosted per-user persistence can replace local storage without requiring a UI rewrite.
+
+For cross-device user accounts, the remaining production integration is Firebase Authentication plus a hosted datastore such as Firestore keyed to the authenticated user. The current live demo intentionally keeps each browser session self-contained.
 
 The server exposes:
 
@@ -78,19 +87,18 @@ No secrets are committed to the repository.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — domain model, persistence boundary, auth flow, deployment shape, and production evolution
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — local/Render/Firebase deployment runbook and first-deploy checks
 - [`docs/QA.md`](docs/QA.md) — functional, responsive, accessibility, persistence, and API acceptance checklist
+- [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md) — quick map of the files that own UI, state, auth, hosting, and deployment
 
 ## Deployment
 
-`render.yaml` defines a Node web service with a pinned Node runtime, explicit dev-tool installation for builds, health checks, and Firebase environment placeholders.
-
-On Render, the intended flow is:
+The production Render service tracks `main` with Auto-Deploy enabled. Each commit triggers:
 
 ```text
-GitHub repo → npm install → npm run check → Express host → health check
+GitHub main → npm install → npm run check → Express host → /api/health → live
 ```
 
 CI uses the same `npm run check` contract, keeping local, CI, and Render verification aligned.
 
 ## Portfolio intent
 
-Planora demonstrates the parts of frontend/full-stack work that are easy to miss in tutorial projects: derived state, data integrity, keyboard interaction, responsive layouts, graceful credential handling, deploy configuration, production server behavior, and a clear path from local-first demo persistence to a hosted data layer.
+Planora demonstrates the parts of frontend/full-stack work that are easy to miss in tutorial projects: derived state, data integrity, workflow transitions, destructive actions, keyboard interaction, analytics, responsive layouts, graceful credential handling, deployment configuration, production server behavior, and a clean path from local-first persistence to authenticated hosted data.
