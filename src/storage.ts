@@ -1,84 +1,113 @@
 import {demoWorkspace} from './demo';
-import type {Plan,Priority,Task,TaskStatus,Workspace} from './types';
+import {emptyWorkspace,localDateKey,normalizeWorkspace} from './domain';
+import type {Plan,Priority,Task,TaskStatus,Workspace,WorkspaceSnapshot} from './types';
 
-const KEY='planora-workspace-v2';
+const KEY='planora-workspace-v3';
+const PREVIOUS_KEY='planora-workspace-v2';
 const LEGACY_KEY='planora-workspace-v1';
+const SCHEMA_VERSION=3;
 
-function cloneDemo():Workspace{return structuredClone(demoWorkspace)}
-function scopedKey(scope:string){return `${KEY}:${scope.replace(/[^a-zA-Z0-9:_-]/g,'_')}`}
+const clone=<T,>(value:T):T=>structuredClone(value);
+const scopedKey=(base:string,scope:string)=>`${base}:${scope.replace(/[^a-zA-Z0-9:_-]/g,'_')}`;
+const now=()=>new Date().toISOString();
+
+function parseSnapshot(raw:string):WorkspaceSnapshot|null{
+  try{
+    const value=JSON.parse(raw) as unknown;
+    if(value&&typeof value==='object'&&!Array.isArray(value)){
+      const record=value as Record<string,unknown>;
+      const workspace=normalizeWorkspace(record.workspace);
+      if(workspace){
+        const savedAt=typeof record.savedAt==='string'&&!Number.isNaN(Date.parse(record.savedAt))?new Date(record.savedAt).toISOString():now();
+        return{workspace,savedAt};
+      }
+    }
+    const workspace=normalizeWorkspace(value);
+    return workspace?{workspace,savedAt:now()}:null;
+  }catch{return null}
+}
+
 function dateFromLegacy(value:unknown){
-  if(typeof value!=='string'||!value.trim())return new Date().toISOString().slice(0,10);
+  if(typeof value!=='string'||!value.trim())return localDateKey();
   if(/^\d{4}-\d{2}-\d{2}$/.test(value))return value;
   const parsed=new Date(`${value}, ${new Date().getFullYear()}`);
-  return Number.isNaN(parsed.getTime())?new Date().toISOString().slice(0,10):parsed.toISOString().slice(0,10);
+  return Number.isNaN(parsed.getTime())?localDateKey():localDateKey(parsed);
 }
 function legacyStatus(value:unknown):TaskStatus{
-  if(value==='Done')return 'Complete';
-  if(value==='In progress')return 'In Progress';
-  if(value==='Review')return 'To Do';
-  return 'Backlog';
+  if(value==='Done')return'Complete';
+  if(value==='In progress')return'In Progress';
+  if(value==='Review')return'To Do';
+  return'Backlog';
 }
-function legacyPriority(value:unknown):Priority{
-  return value==='Low'||value==='Medium'||value==='High'||value==='Urgent'?value:'Medium';
-}
+function legacyPriority(value:unknown):Priority{return value==='Low'||value==='Medium'||value==='High'||value==='Urgent'?value:'Medium'}
 function migrateLegacy(value:unknown):Workspace|null{
   if(!value||typeof value!=='object')return null;
   const legacy=value as {projects?:unknown[];tasks?:unknown[]};
   if(!Array.isArray(legacy.projects)||!Array.isArray(legacy.tasks))return null;
-  const createdAt=new Date().toISOString();
+  const createdAt=now();
   const plans:Plan[]=legacy.projects.flatMap(raw=>{
-    if(!raw||typeof raw!=='object')return [];
-    const p=raw as Record<string,unknown>;
-    if(typeof p.id!=='string'||typeof p.name!=='string')return [];
-    return [{id:p.id,name:p.name,emoji:typeof p.emoji==='string'?p.emoji:'◇',description:typeof p.description==='string'?p.description:'',goal:typeof p.description==='string'?p.description:`Complete ${p.name}.`,color:typeof p.color==='string'?p.color:'#7f8cff',startDate:new Date().toISOString().slice(0,10),targetDate:dateFromLegacy(p.due),priority:'Medium',status:'Active',category:'General',tags:[],collaborators:[{id:'owner',name:'You',initials:'YOU',role:'Owner'}],createdAt}];
+    if(!raw||typeof raw!=='object')return[];
+    const item=raw as Record<string,unknown>;
+    if(typeof item.id!=='string'||typeof item.name!=='string')return[];
+    return[{id:item.id,name:item.name,emoji:typeof item.emoji==='string'?item.emoji:'◇',description:typeof item.description==='string'?item.description:'',goal:typeof item.description==='string'?item.description:`Complete ${item.name}.`,color:typeof item.color==='string'?item.color:'#7f8cff',startDate:localDateKey(),targetDate:dateFromLegacy(item.due),priority:'Medium',status:'Active',category:'General',tags:[],collaborators:[{id:'owner',name:'You',initials:'YOU',role:'Owner'}],createdAt}];
   });
+  const planIds=new Set(plans.map(plan=>plan.id));
   const tasks:Task[]=legacy.tasks.flatMap(raw=>{
-    if(!raw||typeof raw!=='object')return [];
-    const t=raw as Record<string,unknown>;
-    if(typeof t.id!=='string'||typeof t.projectId!=='string'||typeof t.title!=='string')return [];
-    return [{id:t.id,planId:t.projectId,title:t.title,status:legacyStatus(t.status),priority:legacyPriority(t.priority),assignee:typeof t.assignee==='string'?t.assignee:'You',dueDate:dateFromLegacy(t.due),estimate:typeof t.estimate==='number'&&Number.isFinite(t.estimate)?Math.max(t.estimate,0):1,tags:Array.isArray(t.tags)?t.tags.filter((tag):tag is string=>typeof tag==='string'):[],notes:typeof t.note==='string'?t.note:undefined,subtasks:[],dependencies:[],createdAt}];
+    if(!raw||typeof raw!=='object')return[];
+    const item=raw as Record<string,unknown>;
+    if(typeof item.id!=='string'||typeof item.projectId!=='string'||typeof item.title!=='string'||!planIds.has(item.projectId))return[];
+    return[{id:item.id,planId:item.projectId,title:item.title,status:legacyStatus(item.status),priority:legacyPriority(item.priority),assignee:typeof item.assignee==='string'?item.assignee:'You',dueDate:dateFromLegacy(item.due),estimate:typeof item.estimate==='number'&&Number.isFinite(item.estimate)?Math.max(item.estimate,0):2,tags:Array.isArray(item.tags)?item.tags.filter((tag):tag is string=>typeof tag==='string'):[],notes:typeof item.note==='string'?item.note:undefined,subtasks:[],dependencies:[],createdAt}];
   });
-  return {...cloneDemo(),plans,milestones:[],tasks,resources:[],notes:[],activity:[{id:crypto.randomUUID(),type:'plan',message:'Migrated your previous Planora workspace.',createdAt}],settings:cloneDemo().settings};
+  return normalizeWorkspace({...emptyWorkspace(),plans,tasks,activity:[{id:crypto.randomUUID(),type:'plan',message:'Migrated your previous Planora workspace.',createdAt}]})??emptyWorkspace();
 }
 
-export function normalizeWorkspace(value:unknown):Workspace|null{
-  if(!value||typeof value!=='object')return null;
-  const w=value as Partial<Workspace>;
-  if(!Array.isArray(w.plans)||!Array.isArray(w.tasks))return null;
-  return {
-    plans:w.plans as Workspace['plans'],
-    milestones:Array.isArray(w.milestones)?w.milestones:[],
-    tasks:w.tasks as Workspace['tasks'],
-    resources:Array.isArray(w.resources)?w.resources:[],
-    notes:Array.isArray(w.notes)?w.notes:[],
-    activity:Array.isArray(w.activity)?w.activity:[],
-    settings:w.settings&&typeof w.settings==='object'?{...cloneDemo().settings,...w.settings}:cloneDemo().settings
-  };
+function read(base:string,scope:string){
+  try{return localStorage.getItem(scopedKey(base,scope))}catch{return null}
 }
+function remove(base:string,scope:string){try{localStorage.removeItem(scopedKey(base,scope))}catch{/* storage may be unavailable */}}
 
-export function loadWorkspace(scope='guest'):Workspace{
-  try{
-    const raw=localStorage.getItem(scopedKey(scope));
-    if(raw){const normalized=normalizeWorkspace(JSON.parse(raw));if(normalized)return normalized;}
-    if(scope==='guest'){
-      const unscoped=localStorage.getItem(KEY);
-      if(unscoped){const normalized=normalizeWorkspace(JSON.parse(unscoped));if(normalized)return normalized;}
+export function loadWorkspaceSnapshot(scope='guest'):WorkspaceSnapshot{
+  const current=read(KEY,scope);
+  if(current){const parsed=parseSnapshot(current);if(parsed)return parsed}
+
+  const previous=read(PREVIOUS_KEY,scope);
+  if(previous){
+    const parsed=parseSnapshot(previous);
+    if(parsed){saveWorkspace(parsed.workspace,scope,parsed.savedAt);remove(PREVIOUS_KEY,scope);return parsed}
+  }
+
+  if(scope==='guest'){
+    try{
+      const unscoped=localStorage.getItem(PREVIOUS_KEY);
+      if(unscoped){const parsed=parseSnapshot(unscoped);if(parsed){saveWorkspace(parsed.workspace,scope,parsed.savedAt);localStorage.removeItem(PREVIOUS_KEY);return parsed}}
       const legacy=localStorage.getItem(LEGACY_KEY);
-      if(legacy){const migrated=migrateLegacy(JSON.parse(legacy));if(migrated){saveWorkspace(migrated,scope);return migrated;}}
-    }
-  }catch{/* Browser storage can be unavailable in hardened contexts. */}
-  return cloneDemo();
+      if(legacy){const migrated=migrateLegacy(JSON.parse(legacy));if(migrated){const snapshot={workspace:migrated,savedAt:now()};saveWorkspace(snapshot.workspace,scope,snapshot.savedAt);localStorage.removeItem(LEGACY_KEY);return snapshot}}
+    }catch{/* hardened/private browser contexts can reject storage */}
+  }
+
+  return{workspace:emptyWorkspace(),savedAt:new Date(0).toISOString()};
 }
 
-export function saveWorkspace(value:Workspace,scope='guest'){
-  try{localStorage.setItem(scopedKey(scope),JSON.stringify(value))}catch{/* Keep the app usable if storage is unavailable. */}
+export function loadWorkspace(scope='guest'){return loadWorkspaceSnapshot(scope).workspace}
+
+export function saveWorkspace(value:Workspace,scope='guest',savedAt=now()):WorkspaceSnapshot{
+  const workspace=normalizeWorkspace(value)??emptyWorkspace();
+  const snapshot={workspace,savedAt};
+  try{localStorage.setItem(scopedKey(KEY,scope),JSON.stringify({schemaVersion:SCHEMA_VERSION,...snapshot}))}catch{/* keep local-only usage functional if quota/storage is unavailable */}
+  return snapshot;
 }
 
 export function resetWorkspace(scope='guest'){
-  try{localStorage.removeItem(scopedKey(scope))}catch{/* noop */}
-  return cloneDemo();
+  remove(KEY,scope);remove(PREVIOUS_KEY,scope);
+  return emptyWorkspace();
 }
 
-export function exportWorkspace(value:Workspace){
-  return JSON.stringify(value,null,2);
+export function demoSnapshot():WorkspaceSnapshot{return{workspace:clone(demoWorkspace),savedAt:now()}}
+export function exportWorkspace(value:Workspace){return JSON.stringify({schemaVersion:SCHEMA_VERSION,exportedAt:now(),workspace:normalizeWorkspace(value)??emptyWorkspace()},null,2)}
+export function parseWorkspaceImport(raw:string):Workspace{
+  const parsed=JSON.parse(raw) as unknown;
+  const root=parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed as Record<string,unknown>:null;
+  const workspace=normalizeWorkspace(root?.workspace??parsed);
+  if(!workspace)throw new Error('This file does not contain a valid Planora workspace.');
+  return workspace;
 }
