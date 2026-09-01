@@ -1,118 +1,148 @@
 # Planora QA Checklist
 
-Use this after a local build and again against the deployed Render URL.
+Run this after a local production build and again against the deployed Render URL.
 
-## Smoke
+## Core smoke
 
-- [ ] App loads with no blank screen or uncaught console error.
-- [ ] Branded favicon/title appear.
-- [ ] Refresh preserves the current workspace.
-- [ ] Invalid/blocked local storage does not prevent the UI from rendering.
-- [ ] Error boundary presents a recovery screen if a render error occurs.
-- [ ] Reset restores the sample workspace without clearing unrelated browser storage.
+- [ ] App loads without a blank screen or uncaught render failure.
+- [ ] Branded title, favicon, and theme metadata appear.
+- [ ] Guest workspace changes survive refresh.
+- [ ] Invalid or blocked browser storage falls back to a usable demo.
+- [ ] Error boundary presents branded recovery controls if rendering fails.
+- [ ] Error-boundary reset removes current `planora-workspace-v2*` data without clearing unrelated browser storage.
+- [ ] Sidebar Reset restores the sample workspace.
+- [ ] Export downloads valid JSON for the current workspace.
 
-## Appearance / personalization
+## Navigation and search
 
-- [ ] Theme control is reachable by mouse, touch, and keyboard.
-- [ ] Midnight, Aurora, Ember, and Daybreak can each be selected.
-- [ ] Selected theme survives a hard refresh.
-- [ ] Browser theme-color changes with the active theme.
-- [ ] Daybreak remains readable across sidebar, cards, board, calendar, insights, forms, overlays, and toasts.
-- [ ] All dark themes maintain readable contrast across the same surfaces.
-- [ ] Dynamic completion ring remains numerically accurate after switching themes.
-- [ ] Opening/closing the appearance panel does not alter workspace data.
-- [ ] Escape closes the appearance panel.
-- [ ] Theme panel fits within phone viewport and remains scrollable if needed.
-- [ ] Success toasts never sit underneath the theme control.
+- [ ] Dashboard, Today, Plans, Tasks, Roadmap, Calendar, Resources, and Insights all render.
+- [ ] Active-plan links in the sidebar open the correct plan.
+- [ ] Mobile sidebar opens without horizontal page overflow.
+- [ ] Mobile drawer stays above the app and visually separates underlying content.
+- [ ] `Ctrl/Cmd + K` focuses workspace search.
+- [ ] Search finds matching plans, tasks, milestones, resources, and notes.
+- [ ] Selecting a plan or milestone result navigates back to the relevant plan.
+- [ ] Escape closes active modal and mobile navigation layers.
 
-## Navigation
+## Plans and milestones
 
-- [ ] Overview, Projects, My tasks, Calendar, and Insights all render.
-- [ ] Sidebar project selection opens the correct project.
-- [ ] My tasks only shows tasks assigned to `NR` and is not stuck on a prior project filter.
-- [ ] Mobile sidebar opens/closes without horizontal page overflow.
-- [ ] Mobile menu displays a backdrop and remains above underlying content.
-- [ ] `Ctrl/Cmd+K` focuses search.
-- [ ] Escape closes active modal/mobile-navigation layers.
+- [ ] New plan requires a name and main goal.
+- [ ] Target date cannot precede the selected start date.
+- [ ] Smart starter creates ordered milestones and starter tasks.
+- [ ] Manual plan creates a plan without generated work.
+- [ ] Plan status can be changed from the plan view.
+- [ ] Plan completion is derived from its tasks.
+- [ ] Health moves to At Risk / Behind when deadlines and open work warrant it.
+- [ ] Milestone completion toggles correctly.
+- [ ] Milestone progress reflects linked task completion.
+- [ ] Roadmap orders milestones and keeps dependency flow readable.
 
 ## Tasks
 
-- [ ] New task requires a non-empty title and project.
-- [ ] Estimate, tags, due date, priority, and note are saved.
-- [ ] Search matches title/tags/notes/project/assignee as expected.
-- [ ] Moving a task changes its workflow column.
-- [ ] Workflow transitions persist after refresh.
-- [ ] Completing/reopening a task updates project completion percentage.
-- [ ] Priority queue reflects active tasks only.
-- [ ] Deleting a task removes only the intended task and persists after refresh.
-- [ ] Empty workflow columns render a useful empty state.
+- [ ] New task requires a title and plan.
+- [ ] Optional milestone, status, priority, due date, estimate, tags, and notes persist.
+- [ ] Workflow contains Backlog, To Do, In Progress, Blocked, and Complete.
+- [ ] Clicking a task status control advances the task state.
+- [ ] Desktop drag-and-drop moves a task to the dropped workflow column.
+- [ ] Explicit Move controls remain usable without drag-and-drop.
+- [ ] Completing a task updates dashboard and plan completion metrics.
+- [ ] Blocked tasks update dashboard blocked-work counts.
+- [ ] Deleting a task removes only the intended task.
+- [ ] Long titles and notes wrap or truncate without breaking cards.
 
-## Projects
+## Today
 
-- [ ] New project requires a name.
-- [ ] New project appears in sidebar and project grid.
-- [ ] Project task counts reflect open tasks.
-- [ ] Project completion is derived from its tasks.
-- [ ] Selecting a single project exposes the delete-project action.
-- [ ] Project deletion requires confirmation and removes tasks owned by that project.
+- [ ] Open work is grouped into Overdue, Today, and Coming next.
+- [ ] Completed work is excluded from focus groups.
+- [ ] Empty groups remain visually intentional.
+- [ ] State changes immediately update the relevant group.
 
 ## Calendar
 
 - [ ] Calendar displays the current month/year.
-- [ ] Current date is visually highlighted.
-- [ ] Tasks with due dates in the current month appear on matching dates.
-- [ ] Phone layout remains readable without horizontal calendar scrolling.
-- [ ] Phone layout uses compact task indicators without overflowing day cells.
+- [ ] Previous, Today, and Next controls work.
+- [ ] Tasks appear on matching due dates.
+- [ ] Phone layout remains readable without desktop-width horizontal scrolling.
+- [ ] Phone layout uses compact event indicators without overflowing day cells.
+
+## Resources
+
+- [ ] Resource creation requires a title and plan.
+- [ ] Resource can optionally target a milestone.
+- [ ] Type, URL, and notes persist.
+- [ ] External links open in a new tab with `noreferrer` protection.
+- [ ] Long resource titles and notes do not overflow the grid.
 
 ## Insights
 
-- [ ] Workspace health responds to high/urgent open work.
-- [ ] Completion percentage matches Done tasks.
-- [ ] Workflow distribution changes after moving tasks.
-- [ ] Open estimated hours match non-Done task estimates.
-- [ ] Project workload rows match each project's open estimated hours and completion.
-- [ ] Upcoming deadlines list the nearest open tasks in date order.
-- [ ] Insights stack into a readable single-column layout on phones.
+- [ ] Workspace completion percentage matches completed tasks.
+- [ ] Open effort matches non-complete task estimates.
+- [ ] Completed milestone count is accurate.
+- [ ] Workspace health reacts to At Risk / Behind plans.
+- [ ] Insight cards collapse to a readable single column on phones.
 
-## Authentication
+## Authentication and persistence
 
 Without Firebase:
 
-- [ ] Account control clearly reports local/demo mode.
-- [ ] Clicking sign-in does not crash.
+- [ ] Account control clearly reports demo/local behavior.
+- [ ] Clicking the account control does not crash.
+- [ ] Guest state remains scoped to the guest workspace.
 
 With Firebase:
 
-- [ ] Google popup opens.
-- [ ] Successful sign-in produces confirmation feedback.
-- [ ] Cancelled/failed popup produces readable error feedback.
+- [ ] Google sign-in popup opens under the production CSP.
+- [ ] Successful sign-in loads the authenticated user's workspace or local fallback.
+- [ ] Cloud save transitions through syncing to synced state.
+- [ ] Cloud failure leaves local persistence usable and reports fallback state.
+- [ ] Sign-out returns to the guest workspace without leaking the authenticated user's data into guest state.
 
-## Production host
+## Production host and security
 
-- [ ] `GET /api/health` -> `200` JSON.
-- [ ] `GET /api/config` -> `200` JSON with correct readiness values.
+- [ ] `GET /api/health` -> `200` JSON with `status: ok` and `service: planora`.
+- [ ] `GET /api/config` -> `200` JSON with non-secret Firebase readiness only.
 - [ ] Unknown `/api/*` -> JSON `404`, not `index.html`.
-- [ ] Hard refresh of SPA root works.
-- [ ] Hashed assets have long cache headers.
-- [ ] HTML is not permanently cached.
-- [ ] Security headers are present.
+- [ ] Hard refresh of an SPA route still serves the app.
+- [ ] Hashed `/assets/*` responses use immutable long caching.
+- [ ] HTML uses no-store / revalidation behavior.
+- [ ] `X-Powered-By` is absent.
+- [ ] CSP, HSTS, frame protection, MIME sniffing protection, permissions policy, referrer policy, and cross-origin headers are present.
+- [ ] Firestore denies unauthenticated workspace reads/writes.
+- [ ] Firestore denies one user from reading or writing another user's workspace.
+- [ ] Firestore only accepts the expected `default` workspace document shape.
 
-## Accessibility / mobile
+## Accessibility and interaction
 
-- [ ] Tab focus is clearly visible.
-- [ ] Interactive controls are reachable by keyboard.
-- [ ] Reduced-motion OS preference disables nonessential transitions/animations.
-- [ ] Mobile touch targets are comfortably usable.
-- [ ] Kanban columns reflow vertically on a phone rather than requiring desktop-width horizontal scrolling.
-- [ ] Modals fit within the viewport and remain scrollable on small screens.
+- [ ] Keyboard focus is clearly visible.
+- [ ] Buttons, links, fields, and selects are reachable by keyboard.
+- [ ] Reduced-motion preference suppresses nonessential movement.
+- [ ] Pointer/touch targets are comfortably usable.
+- [ ] User-entered long text does not create horizontal viewport overflow.
+- [ ] Forms remain usable at 200% browser zoom.
+
+## Mobile-specific pass
+
+- [ ] Header controls remain reachable with 320–390px widths.
+- [ ] Search remains usable without forcing browser input zoom.
+- [ ] Page action buttons become full-width when space is tight.
+- [ ] Dashboard metrics stack cleanly on narrow phones.
+- [ ] Plan metadata moves from two columns to one on narrow phones.
+- [ ] Kanban columns reflow vertically instead of requiring horizontal drag scrolling.
+- [ ] Drag affordance is visually removed from phone task cards while Move controls remain present.
+- [ ] Calendar becomes compact without losing date navigation.
+- [ ] Modals become bottom-sheet style and account for safe-area insets.
+- [ ] Toasts remain above the bottom safe area.
+- [ ] Sidebar scrolls independently when phone height is short.
 
 ## Viewports
 
 Test at minimum:
 
+- [ ] 320x568 narrow phone
 - [ ] 360x800 small Android portrait
-- [ ] 390x844 phone portrait
+- [ ] 390x844 modern phone portrait
 - [ ] 844x390 phone landscape
-- [ ] 768x1024 tablet
+- [ ] 768x1024 tablet portrait
+- [ ] 1024x768 tablet landscape
 - [ ] 1366x768 laptop
 - [ ] 1920x1080 desktop
