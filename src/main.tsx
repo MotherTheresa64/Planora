@@ -12,6 +12,7 @@ import './release-polish.css';
 import './theme-layout.css';
 import './product-upgrade.css';
 import './recruiter-polish.css';
+import './workflow-completion.css';
 
 initializeThemes();
 
