@@ -107,7 +107,7 @@ test('progress and derived milestone status use task completion deterministicall
   let next=syncDerivedState(state);
   assert.equal(milestoneProgress(next,'m1'),50);
   assert.equal(planProgress(next,'p1'),50);
-  assert.equal(next.milestones[0].status,'Not Started');
+  assert.equal(next.milestones[0].status,'In Progress');
   next=syncDerivedState({...next,tasks:next.tasks.map(item=>({...item,status:'Complete',completedAt:createdAt}))});
   assert.equal(next.milestones[0].status,'Complete');
   assert.equal(planProgress(next,'p1'),100);
