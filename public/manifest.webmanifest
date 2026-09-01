@@ -1,12 +1,12 @@
 {
-  "name": "Planora",
+  "name": "Planora — Plan clearly. Ship calmly.",
   "short_name": "Planora",
-  "description": "Calm project planning for focused teams.",
+  "description": "A polished planning workspace for goals, milestones, tasks, roadmaps, calendars, resources, and measurable progress.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0b1020",
-  "theme_color": "#0b1020",
+  "background_color": "#090d18",
+  "theme_color": "#171c2b",
   "icons": [
     {"src":"/favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
   ]
