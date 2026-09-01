@@ -1,8 +1,40 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function ownsWorkspace(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function validWorkspaceDocument(workspaceId) {
+      return workspaceId == 'default'
+        && request.resource.data.keys().hasOnly(['workspace', 'updatedAt'])
+        && request.resource.data.updatedAt is string
+        && request.resource.data.workspace is map
+        && request.resource.data.workspace.keys().hasAll([
+          'plans', 'milestones', 'tasks', 'resources', 'notes', 'activity', 'settings'
+        ])
+        && request.resource.data.workspace.keys().hasOnly([
+          'plans', 'milestones', 'tasks', 'resources', 'notes', 'activity', 'settings'
+        ])
+        && request.resource.data.workspace.plans is list
+        && request.resource.data.workspace.milestones is list
+        && request.resource.data.workspace.tasks is list
+        && request.resource.data.workspace.resources is list
+        && request.resource.data.workspace.notes is list
+        && request.resource.data.workspace.activity is list
+        && request.resource.data.workspace.settings is map
+        && request.resource.data.workspace.plans.size() <= 250
+        && request.resource.data.workspace.milestones.size() <= 750
+        && request.resource.data.workspace.tasks.size() <= 2000
+        && request.resource.data.workspace.resources.size() <= 750
+        && request.resource.data.workspace.notes.size() <= 750
+        && request.resource.data.workspace.activity.size() <= 100;
+    }
+
     match /users/{userId}/workspaces/{workspaceId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if ownsWorkspace(userId) && workspaceId == 'default';
+      allow create, update: if ownsWorkspace(userId) && validWorkspaceDocument(workspaceId);
+      allow delete: if ownsWorkspace(userId) && workspaceId == 'default';
     }
   }
 }
