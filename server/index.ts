@@ -19,13 +19,13 @@ app.use('/api',(_req,res,next)=>{res.setHeader('Cache-Control','no-store');next(
 app.get('/api/health',(_req,res)=>res.json({
   status:'ok',
   service:'planora',
-  mode:process.env.DATABASE_URL?'production':'demo',
+  runtime:'static-spa',
   timestamp:new Date().toISOString()
 }));
 
 app.get('/api/config',(_req,res)=>res.json({
-  firebase:Boolean(process.env.VITE_FIREBASE_PROJECT_ID),
-  database:Boolean(process.env.DATABASE_URL)
+  persistence:'browser-local',
+  cloudSync:'optional-firebase-client'
 }));
 
 app.use('/api',(_req,res)=>res.status(404).json({error:'API route not found'}));

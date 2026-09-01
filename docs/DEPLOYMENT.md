@@ -2,32 +2,28 @@
 
 ## 1. Preflight
 
-Use Node `22.16.0` (the repo includes `.nvmrc`). From the repository root:
+Use Node `22.16.0` (the repository includes `.nvmrc`). From a clean checkout:
 
 ```bash
-npm install
+npm install --include=dev --no-audit --no-fund
 npm run check
 npm run smoke:server
 ```
 
-`npm run check` typechecks both TypeScript targets, builds the Vite client and Express server, and verifies these required artifacts:
+`npm run check` must pass client/server TypeScript, automated domain tests, the Vite/Express production build, and required-artifact verification. `npm run smoke:server` boots the compiled server and verifies its operational/API contract.
 
-- `dist/index.html`
-- `dist-server/index.js`
+Do not deploy a commit while either command fails.
 
-`npm run smoke:server` then boots the compiled production server on a temporary local port, verifies `/api/health`, confirms an unknown `/api/*` route returns JSON `404`, and shuts the process down.
+## 2. Firebase
 
-For manual production-host inspection after those checks:
+Planora can deploy without Firebase and remain usable in local guest mode. For authenticated per-user Firestore sync:
 
-```bash
-npm start
-```
-
-## 2. Firebase Auth
-
-Create a Firebase project and web application, then enable **Authentication -> Sign-in method -> Google**.
-
-Set these values from the Firebase web app configuration:
+1. Create or select a Firebase project.
+2. Register a Firebase **Web app**.
+3. Enable **Authentication → Sign-in method → Google**.
+4. Enable Firestore.
+5. Deploy the repository's `firestore.rules`.
+6. Configure these web-app values for the build:
 
 ```text
 VITE_FIREBASE_API_KEY
@@ -36,15 +32,27 @@ VITE_FIREBASE_PROJECT_ID
 VITE_FIREBASE_APP_ID
 ```
 
-Never commit real values to the repository. They belong in local `.env` for development and Render environment variables for deployment.
+These are Firebase client configuration values. Do not put privileged service-account keys or unrelated secrets into `VITE_*` variables.
 
-After the Render URL exists, add its hostname to Firebase Authentication's authorized domains.
+After the production hostname exists, add it to Firebase Authentication's authorized domains.
 
-## 3. Render
+## 3. Firestore rule deployment
 
-Create a Blueprint from this repository. The included `render.yaml` defines one Node web service.
+The application stores the authenticated workspace at:
 
-Expected commands:
+```text
+users/{uid}/workspaces/default
+```
+
+The checked-in rules require the authenticated UID to equal the `{userId}` path segment. Deploy the rules using the Firebase project associated with the client configuration.
+
+If rule deployment is not available in the deployment environment, this is an external Firebase-console/CLI step and must be completed before claiming cloud persistence is production-ready.
+
+## 4. Render
+
+The included `render.yaml` defines the Node web service.
+
+Expected contract:
 
 ```text
 Build: npm install --include=dev --no-audit --no-fund && npm run check
@@ -52,36 +60,39 @@ Start: npm start
 Health: /api/health
 ```
 
-Enter the four `VITE_FIREBASE_*` values when Render asks for the `sync: false` variables.
+Configure the four `VITE_FIREBASE_*` values in Render only if cloud auth/sync is intended for that deployment. Because Vite embeds client configuration at build time, a change to those variables requires a rebuild/deploy.
 
-## 4. First-deploy checks
+The Express process does not use `DATABASE_URL`; there is no fake database phase in the current architecture.
 
-Verify:
+## 5. First-deploy checks
 
-1. the root URL loads without horizontal overflow on desktop and mobile;
-2. `/api/health` returns `200` JSON;
-3. `/api/config` reports Firebase readiness correctly;
-4. refresh works on the SPA root;
-5. creating/moving a task persists after refresh;
-6. project completion changes when task state changes;
-7. `Ctrl/Cmd+K` focuses search;
-8. Google sign-in opens and completes after Firebase is configured;
-9. browser console has no uncaught errors.
+Verify the deployed URL against `docs/QA.md`, with special attention to:
 
-## 5. Database phase
+1. first-run empty state and explicit sample loading;
+2. desktop/tablet/mobile layout with no horizontal page overflow;
+3. task status control on touch (not just drag/drop);
+4. `/api/health` returning `200` JSON with `status: "ok"` and `runtime: "static-spa"`;
+5. unknown `/api/*` returning JSON `404`;
+6. local guest persistence across hard refresh;
+7. plan/task/milestone/resource/note create/edit/delete flows;
+8. dependency blocking and destructive cleanup;
+9. Google sign-in/out and Firestore sync if Firebase is configured;
+10. signing in with a second test UID does not expose the first UID's workspace;
+11. Firestore failure leaves local persistence usable;
+12. browser console has no uncaught application errors.
 
-`DATABASE_URL` is reserved for the hosted persistence phase. Do not set it merely to make the health endpoint say production. When the API/database implementation is added, wire a Render PostgreSQL connection string into this variable and update health checks to verify actual database connectivity separately from process health.
+## 6. Production metadata
 
-## 6. After deployment
+Once the production URL is stable:
 
-Once the final public URL is stable:
-
-- add it to the GitHub repository homepage field;
-- add it to the main README;
-- capture desktop and mobile screenshots;
-- update Open Graph metadata with a real preview image;
-- add the live project to the portfolio and LinkedIn.
+- keep the README live URL current;
+- set the GitHub repository homepage field to the live application;
+- use real desktop/mobile screenshots in portfolio material;
+- keep Open Graph/social preview metadata aligned with the current UI;
+- do not describe collaboration, file upload, or backend/database behavior that is not implemented.
 
 ## Rollback
 
-If a deployment regresses, use Render's previous successful deploy rather than editing secrets or infrastructure during an incident. Keep the demo mode functional so loss of Firebase configuration does not make the core portfolio experience unavailable.
+If a production deployment regresses, restore a previous successful Render deploy or revert the offending repository commit. Do not modify Firebase rules or credentials as an ad-hoc rollback mechanism unless the incident actually originates there.
+
+A Firebase outage or missing Firebase client configuration should degrade Planora to local behavior; it should not require taking the static application offline.

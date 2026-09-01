@@ -11,6 +11,7 @@ import './theme-aliases.css';
 import './release-polish.css';
 import './theme-layout.css';
 import './product-upgrade.css';
+import './production-hardening.css';
 
 initializeThemes();
 

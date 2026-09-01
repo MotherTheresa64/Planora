@@ -27,6 +27,7 @@ export interface Plan{
   tags:string[];
   collaborators:Collaborator[];
   createdAt:string;
+  updatedAt?:string;
   completedAt?:string;
 }
 
@@ -39,6 +40,8 @@ export interface Milestone{
   targetDate:string;
   order:number;
   dependencies:string[];
+  createdAt?:string;
+  updatedAt?:string;
 }
 
 export interface Subtask{
@@ -57,7 +60,7 @@ export interface Task{
   priority:Priority;
   assignee:string;
   startDate?:string;
-  dueDate:string;
+  dueDate?:string;
   estimate:number;
   actual?:number;
   tags:string[];
@@ -65,6 +68,7 @@ export interface Task{
   subtasks:Subtask[];
   dependencies:string[];
   createdAt:string;
+  updatedAt?:string;
   completedAt?:string;
 }
 
@@ -77,6 +81,7 @@ export interface Resource{
   url?:string;
   notes?:string;
   createdAt:string;
+  updatedAt?:string;
 }
 
 export interface Note{
@@ -113,4 +118,9 @@ export interface Workspace{
   notes:Note[];
   activity:ActivityItem[];
   settings:WorkspaceSettings;
+}
+
+export interface WorkspaceSnapshot{
+  workspace:Workspace;
+  savedAt:string;
 }
