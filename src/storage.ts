@@ -107,16 +107,18 @@ function migrateLegacy(value:unknown):Workspace|null{
   const legacy=record(value) as {projects?:unknown[];tasks?:unknown[]}|null;
   if(!legacy||!Array.isArray(legacy.projects)||!Array.isArray(legacy.tasks))return null;
   const createdAt=new Date().toISOString();
-  const plans:Plan[]=legacy.projects.flatMap((raw,index)=>{
+  const plans:Plan[]=legacy.projects.flatMap((raw):Plan[]=>{
     const p=record(raw);if(!p)return [];
     const planId=id(p.id),name=nonEmpty(p.name);if(!planId||!name)return [];
-    return [{id:planId,name:name.slice(0,240),emoji:nonEmpty(p.emoji,'◇').slice(0,8),description:text(p.description).slice(0,8000),goal:text(p.description)||`Complete ${name}.`,color:color(p.color),startDate:new Date().toISOString().slice(0,10),targetDate:dateFromLegacy(p.due),priority:'Medium',status:'Active',category:'General',tags:[],collaborators:[{id:'owner',name:'You',initials:'YOU',role:'Owner'}],createdAt:index?createdAt:createdAt}];
+    const migrated:Plan={id:planId,name:name.slice(0,240),emoji:nonEmpty(p.emoji,'◇').slice(0,8),description:text(p.description).slice(0,8000),goal:text(p.description)||`Complete ${name}.`,color:color(p.color),startDate:new Date().toISOString().slice(0,10),targetDate:dateFromLegacy(p.due),priority:'Medium',status:'Active',category:'General',tags:[],collaborators:[{id:'owner',name:'You',initials:'YOU',role:'Owner'}],createdAt};
+    return [migrated];
   }).slice(0,LIMITS.plans);
   const planIds=new Set(plans.map(item=>item.id));
-  const tasks:Task[]=legacy.tasks.flatMap(raw=>{
+  const tasks:Task[]=legacy.tasks.flatMap((raw):Task[]=>{
     const t=record(raw);if(!t)return [];
     const taskId=id(t.id),planId=id(t.projectId),title=nonEmpty(t.title);if(!taskId||!planIds.has(planId)||!title)return [];
-    return [{id:taskId,planId,title:title.slice(0,500),status:legacyStatus(t.status),priority:legacyPriority(t.priority),assignee:nonEmpty(t.assignee,'You').slice(0,240),dueDate:dateFromLegacy(t.due),estimate:Math.min(10000,Math.max(0,finite(t.estimate,1))),tags:strings(t.tags),notes:t.note===undefined?undefined:text(t.note).slice(0,12000),subtasks:[],dependencies:[],createdAt}];
+    const migrated:Task={id:taskId,planId,title:title.slice(0,500),status:legacyStatus(t.status),priority:legacyPriority(t.priority),assignee:nonEmpty(t.assignee,'You').slice(0,240),dueDate:dateFromLegacy(t.due),estimate:Math.min(10000,Math.max(0,finite(t.estimate,1))),tags:strings(t.tags),notes:t.note===undefined?undefined:text(t.note).slice(0,12000),subtasks:[],dependencies:[],createdAt};
+    return [migrated];
   }).slice(0,LIMITS.tasks);
   return {...cloneDemo(),plans,milestones:[],tasks,resources:[],notes:[],activity:[{id:crypto.randomUUID(),type:'plan',message:'Migrated your previous Planora workspace.',createdAt}],settings:cloneDemo().settings};
 }
