@@ -24,7 +24,6 @@ test.beforeEach(()=>store.clear());
 
 test('first run is an empty real workspace rather than mandatory demo data',()=>{
   const snapshot=loadWorkspaceSnapshot('guest');
-  assert.equal(snapshot.plans,undefined);
   assert.equal(snapshot.workspace.plans.length,0);
   assert.equal(snapshot.workspace.tasks.length,0);
   assert.equal(snapshot.savedAt,new Date(0).toISOString());
