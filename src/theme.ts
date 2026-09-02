@@ -2,11 +2,11 @@ type ThemeId='midnight'|'aurora'|'ember'|'daybreak';
 
 type ThemeOption={id:ThemeId;label:string;description:string;colors:[string,string];browserColor:string};
 
-const STORAGE_KEY='planora-theme-v1';
-const DEFAULT_THEME:ThemeId='midnight';
+const STORAGE_KEY='planora-theme-v2';
+const DEFAULT_THEME:ThemeId='aurora';
 const themes:ThemeOption[]=[
   {id:'midnight',label:'Midnight',description:'Deep indigo and electric violet',colors:['#111827','#7c83ff'],browserColor:'#090d18'},
-  {id:'aurora',label:'Aurora',description:'Teal shadows with mint highlights',colors:['#08211f','#55e6c1'],browserColor:'#061513'},
+  {id:'aurora',label:'Aurora',description:'Deep navy with focused teal highlights',colors:['#06131d','#45dfcc'],browserColor:'#050b12'},
   {id:'ember',label:'Ember',description:'Warm graphite with coral energy',colors:['#211412','#ff8568'],browserColor:'#130d0c'},
   {id:'daybreak',label:'Daybreak',description:'Bright, crisp and quietly colorful',colors:['#f6f8ff','#6472f3'],browserColor:'#f6f8ff'}
 ];

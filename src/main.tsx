@@ -13,6 +13,7 @@ import './theme-layout.css';
 import './product-upgrade.css';
 import './recruiter-polish.css';
 import './workflow-completion.css';
+import './showcase-design.css';
 
 initializeThemes();
 

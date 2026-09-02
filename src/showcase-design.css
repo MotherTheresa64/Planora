@@ -1,0 +1,18 @@
+/* Portfolio visual direction: navy planning command center with calm teal progress cues. */
+html[data-theme="aurora"]{
+  --theme-bg:#050b12;--theme-sidebar:#07111b;--theme-surface:#0b1723;--theme-surface-2:#0e1c2a;
+  --theme-surface-3:#132536;--theme-line:#1d3445;--theme-text:#f2f8fa;--theme-muted:#8da4af;
+  --theme-accent:#36d9c5;--theme-accent-2:#67e5d5;--theme-positive:#78e4b6;--theme-warm:#f3bc67;
+  --theme-shadow:#0009;--theme-glow:#2ed6c328;
+}
+.app-shell{background:radial-gradient(circle at 78% -20%,#0c7d8426,transparent 36%),radial-gradient(circle at 42% 115%,#173f7624,transparent 36%),var(--theme-bg)}
+.sidebar{width:244px;padding:22px 15px;background:linear-gradient(180deg,#07121c,#060c13)!important}.app-shell{grid-template-columns:244px minmax(0,1fr)}
+.brand{font-size:18px;letter-spacing:.08em}.brand-mark{border-radius:12px;background:linear-gradient(145deg,#74ead8,#32cdb9)!important;color:#05201b!important;box-shadow:0 0 30px #36d9c52b!important}
+.workspace{border-radius:12px!important}.nav{min-height:42px;border-radius:9px}.nav.active{background:linear-gradient(90deg,#12433f,#0f302f)!important;box-shadow:inset 2px 0 #4ce0cc!important}
+header{height:72px;padding-inline:30px;background:#060d15df!important}.content{padding:36px 34px 58px;max-width:1600px}.page-head h1{font-size:clamp(30px,3vw,40px)}
+.primary{color:#041713!important;background:linear-gradient(135deg,#62e6d4,#2bbda9)!important;border-radius:10px}.secondary{border-radius:10px}
+.metric,.project-card,.task-list,.column,.calendar-card,.insight-card,.resource-card,.plan-hero,.plan-description,.plan-meta-grid>div,.roadmap-hero,.activity-list,.note-card,.settings-card{border-radius:15px!important;border-color:#1b3041!important;background:linear-gradient(145deg,#0c1925,#09131e)!important;box-shadow:0 18px 46px #0004!important}
+.metric{min-height:132px}.metric::after{background:linear-gradient(90deg,#35d9c5,transparent 70%)}.project-card:hover,.metric:hover{border-color:#2f756f!important}
+.progress>span,.plan-progress .progress>span{background:linear-gradient(90deg,#32d5c0,#62e3d1)!important}.focus-card{border-color:#21483f!important;background:linear-gradient(145deg,#0e2825,#0a1719)!important}
+.theme-toggle{border-radius:12px}
+@media(max-width:760px){.app-shell{display:block}.sidebar{width:min(88vw,320px)}header{height:64px;padding-inline:10px}.content{padding:22px 14px 78px}.metric,.project-card,.task-list,.column{border-radius:13px!important}}
