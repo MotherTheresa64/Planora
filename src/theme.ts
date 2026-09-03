@@ -1,4 +1,4 @@
-type ThemeId='midnight'|'aurora'|'ember'|'daybreak';
+type ThemeId='midnight'|'aurora'|'ember'|'graphite';
 
 type ThemeOption={id:ThemeId;label:string;description:string;colors:[string,string];browserColor:string};
 
@@ -8,7 +8,7 @@ const themes:ThemeOption[]=[
   {id:'midnight',label:'Midnight',description:'Deep indigo and electric violet',colors:['#111827','#7c83ff'],browserColor:'#090d18'},
   {id:'aurora',label:'Aurora',description:'Deep navy with focused teal highlights',colors:['#06131d','#45dfcc'],browserColor:'#050b12'},
   {id:'ember',label:'Ember',description:'Warm graphite with coral energy',colors:['#211412','#ff8568'],browserColor:'#130d0c'},
-  {id:'daybreak',label:'Daybreak',description:'Bright, crisp and quietly colorful',colors:['#f6f8ff','#6472f3'],browserColor:'#f6f8ff'}
+  {id:'graphite',label:'Graphite',description:'Low-glare charcoal with cool silver',colors:['#080b10','#7f91a8'],browserColor:'#080b10'}
 ];
 
 function isTheme(value:string|null):value is ThemeId{return themes.some(theme=>theme.id===value)}
@@ -25,7 +25,7 @@ function updateDynamicThemeSurfaces(){
 function applyTheme(theme:ThemeId){
   const option=themes.find(item=>item.id===theme)??themes[0];
   document.documentElement.dataset.theme=option.id;
-  document.documentElement.style.colorScheme=option.id==='daybreak'?'light':'dark';
+  document.documentElement.style.colorScheme='dark';
   setBrowserColor(option.browserColor);persistTheme(option.id);
   document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach(button=>{const active=button.dataset.themeChoice===option.id;button.setAttribute('aria-pressed',String(active));button.classList.toggle('active',active)});
   const label=document.querySelector<HTMLElement>('[data-current-theme]');if(label)label.textContent=option.label;
