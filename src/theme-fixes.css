@@ -1,0 +1,73 @@
+/* Theme coverage: the last stylesheet in the appearance stack.
+   A few older layers still hard-code the original indigo palette. Rather than
+   touch every legacy rule, this layer re-declares only those surfaces with the
+   active theme's tokens, so all four appearances share one layout and one
+   colour contract. Nothing here changes spacing, type or component structure. */
+
+/* Dark ink for text that sits on the accent colour. */
+html[data-theme="midnight"]{--theme-on-accent:#0a0d18}
+html[data-theme="aurora"]{--theme-on-accent:#04140f}
+html[data-theme="ember"]{--theme-on-accent:#1b0d0a}
+html[data-theme="graphite"]{--theme-on-accent:#0a0d12}
+
+.brand-mark,.theme-toggle-icon{color:var(--theme-on-accent)!important}
+
+/* --- Base components that predate the token set ----------------------- */
+.priority{background:var(--theme-surface-3);color:var(--theme-muted)}
+.priority.urgent{background:color-mix(in srgb,#ff7c7c 18%,var(--theme-surface-3));color:#ffa6b2}
+.priority.high{background:color-mix(in srgb,var(--theme-warm) 18%,var(--theme-surface-3));color:var(--theme-warm)}
+.priority.low{background:color-mix(in srgb,var(--theme-positive) 16%,var(--theme-surface-3));color:var(--theme-positive)}
+.tags span{background:var(--theme-surface-3);color:var(--theme-muted)}
+.avatars span{background:var(--theme-surface-3);border-color:var(--theme-surface)}
+
+/* Five workflow states need five tracks, and task rows need one for the
+   inline edit control. */
+.board,.planora-board{grid-template-columns:repeat(5,minmax(0,1fr))}
+.task-row{grid-template-columns:auto minmax(0,1fr) auto auto auto}
+
+/* --- Finishing layer -------------------------------------------------- */
+.danger-button,.delete-task{border-color:color-mix(in srgb,#ff7c7c 32%,var(--theme-line));background:color-mix(in srgb,#ff7c7c 8%,var(--theme-surface));color:#ff98aa}
+.danger-button:hover,.delete-task:hover{background:color-mix(in srgb,#ff7c7c 15%,var(--theme-surface));border-color:color-mix(in srgb,#ff7c7c 48%,var(--theme-line))}
+.column-empty{border-color:var(--theme-line);color:var(--theme-muted)}
+.empty{border-color:var(--theme-line);color:var(--theme-muted);background:var(--theme-surface-2)}
+.day.today{outline-color:var(--theme-accent);background:color-mix(in srgb,var(--theme-accent) 9%,var(--theme-surface))}
+.day.today>span{background:var(--theme-accent);color:var(--theme-on-accent)}
+.health-banner{border-color:color-mix(in srgb,var(--theme-positive) 30%,var(--theme-line));background:linear-gradient(135deg,color-mix(in srgb,var(--theme-positive) 10%,var(--theme-surface)),var(--theme-surface-2))}
+.health-banner.risk{border-color:color-mix(in srgb,#ff737f 38%,var(--theme-line));background:linear-gradient(135deg,color-mix(in srgb,#ff737f 10%,var(--theme-surface)),var(--theme-surface-2))}
+.health-banner>strong{color:var(--theme-accent)}
+.insight-heading svg{color:var(--theme-accent)}
+.insight-heading>b{color:var(--theme-muted)}
+.project-insight-list>div,.deadline-list>div{border-bottom-color:var(--theme-line)}
+.project-insight-list strong,.deadline-list strong{color:var(--theme-muted)}
+
+/* --- Product refinements ---------------------------------------------- */
+.toolbar select{background:var(--theme-surface-2);border-color:var(--theme-line)}
+.plan-status.on-track,.plan-status.completed{background:color-mix(in srgb,var(--theme-positive) 15%,var(--theme-surface));color:var(--theme-positive)}
+.plan-status.at-risk,.plan-status.behind{background:color-mix(in srgb,#ff7c7c 15%,var(--theme-surface));color:#ff9aa9}
+.risk-list>button>svg{color:var(--theme-warm)}
+.healthy-card>svg{color:var(--theme-positive)}
+.danger-zone .section-title h2{color:#ff9aa9}
+.milestone-check.complete{background:color-mix(in srgb,var(--theme-positive) 14%,var(--theme-surface));color:var(--theme-positive);border-color:color-mix(in srgb,var(--theme-positive) 34%,var(--theme-line))}
+.task-card.blocked{border-color:color-mix(in srgb,#ff7c7c 32%,var(--theme-line))}
+.achievement-list>div.earned>span{color:var(--theme-positive)}
+
+/* Phones: the search hint should end cleanly instead of being cut mid-word. */
+.search input::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* --- Responsive contract ---------------------------------------------- */
+@media(max-width:1100px){
+  .board,.planora-board{grid-template-columns:repeat(5,240px)}
+}
+
+@media(max-width:760px){
+  .board,.planora-board{grid-template-columns:1fr}
+  .task-row{grid-template-columns:auto minmax(0,1fr) auto auto}
+}
+
+@media(max-width:520px){
+  /* Two compact stats per row keeps the phone dashboard scannable. */
+  .metric-grid{grid-template-columns:1fr 1fr}
+  .metric{padding:14px;min-height:0}
+  .metric strong{font-size:23px;margin-top:11px}
+  .task-row{grid-template-columns:auto minmax(0,1fr) auto}
+}
