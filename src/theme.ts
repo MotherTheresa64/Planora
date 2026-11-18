@@ -2,9 +2,9 @@ type ThemeId='midnight'|'aurora'|'ember'|'graphite';
 
 type ThemeOption={id:ThemeId;label:string;description:string;colors:[string,string];browserColor:string};
 
-const STORAGE_KEY='planora-theme-v2';
-const DEFAULT_THEME:ThemeId='aurora';
-const themes:ThemeOption[]=[
+export const STORAGE_KEY='planora-theme-v2';
+export const DEFAULT_THEME:ThemeId='aurora';
+export const themes:ThemeOption[]=[
   {id:'midnight',label:'Midnight',description:'Deep indigo and electric violet',colors:['#111827','#7c83ff'],browserColor:'#090d18'},
   {id:'aurora',label:'Aurora',description:'Deep navy with focused teal highlights',colors:['#06131d','#45dfcc'],browserColor:'#050b12'},
   {id:'ember',label:'Ember',description:'Warm graphite with coral energy',colors:['#211412','#ff8568'],browserColor:'#130d0c'},
