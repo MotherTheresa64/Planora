@@ -4,6 +4,8 @@
 
 **Live demo:** https://planora-zlxv.onrender.com
 
+The hosted demo runs without Firebase credentials, so it is the browser-local demo: data stays in your browser, and Google sign-in and cloud sync are not active there. They need your own Firebase project (see setup below).
+
 ![Planora — plan clearly, ship calmly](docs/cover.svg)
 
 The demo is fully usable without an account. Signed-in users can opt into per-user cloud sync when Firebase is configured.

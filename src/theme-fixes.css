@@ -71,3 +71,13 @@ html[data-theme="graphite"]{--theme-on-accent:#0a0d12}
   .metric strong{font-size:23px;margin-top:11px}
   .task-row{grid-template-columns:auto minmax(0,1fr) auto}
 }
+
+/* --- Target size + readable text (WCAG 2.5.8 / 44px touch) -------------- */
+.side-label button,.reset,.search input,.status-dot,.row-edit{min-width:24px;min-height:24px}
+.status-dot,.row-edit{position:relative}
+.status-dot::after,.row-edit::after{content:"";position:absolute;inset:-4px}
+.side-label,.eyebrow,.metric>p,.project-card>p,.progress-meta>span,.search>span,.plan-status,.priority,.avatar,.avatar.mini,.task-main>small,.theme-toggle-copy>b,.theme-toggle-copy>small,.user-copy>small,.project-top>span,.task-row>span.priority,.workspace small,.section-title p,.insight-card p,.section-title>.secondary,.insight-heading>b,.project-insight-list b,.project-insight-list small,.deadline-list b,.deadline-list small,.activity-list b,.activity-list small,.plan-meta-grid b,.plan-meta-grid small,.agenda-list b,.agenda-list small,.health-banner p,.achievement-list b,.search-group b,.search-group small,.builder-choice b,.risk-list small,.healthy-card p,.milestone-copy small,.metric-top small,.positive,.theme-panel-head small,.theme-option small,.note-card small,.setting-toggle small,.settings-facts small{font-size:max(.75rem,12px)!important}
+@media (pointer:coarse),(max-width:767px){
+  button,select,[role=button],[role=tab],a[href],.search input{min-height:44px!important;min-width:44px!important}
+  .side-label button{display:inline-grid;place-items:center}
+}
