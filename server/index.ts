@@ -14,7 +14,8 @@ app.use((_req,res,next)=>{
   res.setHeader('Cross-Origin-Opener-Policy','same-origin-allow-popups');
   res.setHeader('Cross-Origin-Resource-Policy','same-origin');
   res.setHeader('Strict-Transport-Security','max-age=31536000; includeSubDomains');
-  res.setHeader('Content-Security-Policy',["default-src 'self'","base-uri 'self'","object-src 'none'","frame-ancestors 'none'","form-action 'self'","script-src 'self'","style-src 'self' 'unsafe-inline' https://fonts.googleapis.com","font-src 'self' data: https://fonts.gstatic.com","img-src 'self' data: https:","connect-src 'self' https://*.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com","frame-src https://accounts.google.com https://*.firebaseapp.com"].join('; '));
+  // apis.google.com and *.firebaseapp.com are needed by Firebase's Google sign-in popup.
+  res.setHeader('Content-Security-Policy',["default-src 'self'","base-uri 'self'","object-src 'none'","frame-ancestors 'none'","form-action 'self'","script-src 'self' https://apis.google.com","style-src 'self' 'unsafe-inline' https://fonts.googleapis.com","font-src 'self' data: https://fonts.gstatic.com","img-src 'self' data: https:","connect-src 'self' https://*.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com","frame-src https://accounts.google.com https://*.firebaseapp.com"].join('; '));
   next();
 });
 app.use(express.json({limit:'1mb',strict:true}));

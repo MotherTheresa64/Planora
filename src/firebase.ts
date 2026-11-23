@@ -30,5 +30,5 @@ export async function loadCloudWorkspace(uid:string):Promise<Workspace|null>{
 export async function saveCloudWorkspace(uid:string,workspace:Workspace){
   const app=appClient();if(!app)return;
   const clean=JSON.parse(JSON.stringify(workspace)) as Workspace;
-  await setDoc(doc(getFirestore(app),'users',uid,'workspaces','default'),{workspace:clean,updatedAt:new Date().toISOString()},{merge:true});
+  await setDoc(doc(getFirestore(app),'users',uid,'workspaces','default'),{workspace:clean,updatedAt:new Date().toISOString()});
 }
