@@ -73,17 +73,18 @@ Legacy `planora-workspace-v1` and prior unscoped v2 data can be migrated/read wi
 
 `src/firebase.ts` initializes Firebase only when all required `VITE_FIREBASE_*` values exist. Google popup authentication becomes available once Firebase is configured; otherwise Planora remains a credential-free local demo.
 
-Authenticated runtime flow:
+Authenticated runtime flow (`src/App.tsx:33-34`, `src/firebase.ts:25-34`):
 
-1. Firebase emits the current user.
-2. Planora switches to a user-scoped local workspace.
-3. The authenticated `/users/{uid}/workspaces/default` Firestore document is loaded when available.
-4. UI state changes are saved locally immediately.
-5. Authenticated changes are debounced before Firestore writes.
-6. Cloud failures leave the local workspace usable and move the header state to local-backup mode rather than losing work.
-7. Sign-out switches back to the separate guest scope.
+1. Firebase emits the current user; Planora switches to the user-scoped local workspace (`planora-workspace-v2:user:<uid>`; guests use `...:guest`).
+2. It loads `/users/{uid}/workspaces/default`. If a document exists it **replaces** the local copy (cloud wins on load); otherwise the local copy is kept.
+3. A `cloudLoaded` ref flips to true only after that load succeeds. Until then no cloud write is attempted. If the load fails, the user keeps the local workspace, status becomes `error`, and `cloudLoaded` stays false, so a failed or offline load can never overwrite the stored cloud workspace with local or demo data. (This was a real bug, fixed in commit `3b634a0`.)
+4. Every change is saved locally immediately; once `cloudLoaded` is true it is debounced 600 ms and written with a plain `setDoc` of the whole document `{workspace, updatedAt}`. Earlier code used a merge, which kept stale settings keys; whole-document write makes the cloud copy exactly the client state.
+5. Cloud write failures keep the local copy and set the header sync state to error.
+6. Sign-out switches back to the separate guest scope.
 
-The checked-in `firestore.rules` restrict reads/writes to the matching authenticated UID, the `default` workspace document, the expected top-level schema, and bounded collection sizes.
+Conflict model: last write wins. Two devices editing the same account will overwrite each other's whole document; there is no merge, versioning or transaction. Planora is a single-user planner, so this is accepted.
+
+`firestore.rules` allow read/create/update/delete only when `request.auth.uid` equals the `{userId}` path segment and the id is `default`. Create/update additionally require the exact envelope (`workspace`, `updatedAt` only), exactly the seven workspace keys, list/map types, and bounded sizes (plans 250, milestones 750, tasks 2000, resources 750, notes 750, activity 100). Rules are not covered by automated tests in this repo.
 
 ## Date model
 
@@ -93,12 +94,12 @@ Timestamps such as `createdAt`, `updatedAt`, and `completedAt` remain standard I
 
 ## UI composition
 
-`src/App.tsx` owns the product workflow and view composition:
+`src/App.tsx` (one file, ~78 long lines; state is plain `useState`, no store library) owns the product workflow and view composition:
 
 - Dashboard
-- Today
+- Today (overdue / due today / coming next, with total open effort)
 - Plans
-- Tasks / Kanban
+- Tasks / Kanban (five columns; HTML5 drag-and-drop via `dataTransfer` plus an explicit Move control for touch)
 - Roadmap
 - Calendar
 - Resources + notes
@@ -121,6 +122,29 @@ Vite compiles the browser application to `dist/`. TypeScript compiles the Expres
 - prevents stale `index.html` caching;
 - shuts down gracefully on Render termination signals.
 
+## Key business logic
+
+- Plan health is derived, not stored (`health()` in `App.tsx`): Draft/Paused/Completed/Archived are kept as set; past target date with progress under 100% is `Behind`; two or more overdue open tasks is `At Risk`; otherwise `On Track` (or `Planned`).
+- Progress is completed tasks / total tasks per plan and per milestone.
+- "Smart starter" (`generate()`) is a deterministic template: four fixed milestones (Define, Foundation, Core work, Finish) with three tasks each, dates spread across the plan window with `spread()`, each milestone depending on the previous one. **There is no AI or LLM call anywhere in Planora**; the name is marketing for a template.
+- Demo data is generated relative to the day it is opened (`src/demo.ts`) so there are always overdue, due-today and upcoming items.
+
+## Security decisions
+
+CSP (`default-src 'self'`, `script-src 'self' https://apis.google.com`, frame sources limited to Google sign-in hosts, `object-src 'none'`, `frame-ancestors 'none'`), HSTS, `X-Frame-Options`, `nosniff`, referrer/permissions/COOP/CORP headers (`server/index.ts:9-18`); `apis.google.com` was added in `3b634a0` because the Firebase Google popup needs it. Resource URLs are restricted to http/https at the storage boundary. `express.json` is limited to 1 MB although no write API exists.
+
+## Testing strategy
+
+`npm test` runs vitest over `src/`: 11 tests, 9 in `storage.test.ts` (demo fallback, malformed JSON, per-scope round-trip and isolation, reset, export, rejecting non-objects and missing arrays, normalising the demo) and 2 in `theme.test.ts`. Not covered by automated tests: `App.tsx` behaviour (health, drag-and-drop, cloud-load guard), `firebase.ts`, Firestore rules, referential-repair edge cases beyond the above. `npm run check` (typecheck, build, artifact verification) and `npm run smoke:server` cover the build and the production host; `docs/QA.md` is a manual checklist.
+
+## CI
+
+`.github/workflows/ci.yml` (Node 22.16.0, `npm ci`): `check`, `test`, `smoke:server` on push to `main` and on pull requests.
+
+## Live deployment
+
+https://planora-zlxv.onrender.com tracks `main` on Render. `/api/config` returns `{"firebase":false}` there: no Firebase environment variables are set, so the live site is the browser-storage demo. Google sign-in, Firestore sync and the cloud-load guard have not been exercised live.
+
 ## Build and verification
 
 GitHub Actions and Render use the same build contract:
@@ -138,3 +162,16 @@ npm run smoke:server   # CI/manual production-host smoke
 Planora intentionally stores a single workspace document per authenticated user instead of implementing a multi-tenant collaboration backend. Collaborator metadata exists in the domain/UI, but there is no claim that the current portfolio deployment provides live multi-user invitations or realtime shared editing.
 
 That boundary keeps the live demo deployable and reliable while still demonstrating account isolation, persistence design, domain integrity, workflow state, responsive product engineering, and a clear path to a multi-workspace/team API later.
+
+## Known limitations
+
+- Collaborators are metadata only; there is no sharing, invitation or realtime editing.
+- Cloud sync is whole-document last-write-wins; cloud replaces local on sign-in.
+- The whole workspace is one Firestore document (1 MiB limit; 2000 tasks plus notes could approach it).
+- Firestore rules are untested; `App.tsx` logic is untested; no E2E tests.
+- HTML5 drag-and-drop does not work on touch screens (the Move control is the touch path).
+- No AI features, notifications, reminders or file upload (the `File` resource kind is a label for a link).
+
+## Future improvements (not implemented)
+
+Rules emulator tests; per-entity subcollections or revision field to detect cross-device conflicts; component and E2E tests; splitting `App.tsx`; real collaboration; any AI-assisted planning.

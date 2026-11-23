@@ -35,7 +35,7 @@ Every view is a way into that loop rather than a separate demo screen.
 **Plans and milestones**
 
 - Multiple plans with goal, description, dates, priority, category and colour
-- Smart starter generation that turns a goal and timeline into editable milestones and starter tasks
+- Smart starter: a deterministic template (four milestones, three tasks each, dates spread over the plan window) that you then edit. It is not AI; Planora makes no model or API calls
 - Manual plans built up with first-class milestone creation
 - Plan editing, status transitions, archive/completion states, and confirmed cascade deletion
 - Health derived from deadlines and task completion rather than hard-coded labels
@@ -127,6 +127,7 @@ Full preflight:
 
 ```bash
 npm run check
+npm test            # vitest: 11 tests (storage normalisation, themes)
 npm run smoke:server
 ```
 
@@ -154,8 +155,8 @@ Planora uses a local-first strategy:
 1. Guest state is read from a versioned, scoped `localStorage` workspace.
 2. Persisted content is normalised before it reaches the UI; malformed entities and dangling references are repaired or discarded safely.
 3. Legacy workspace data is migrated when possible.
-4. Signed-in users load their `/users/{uid}/workspaces/default` Firestore document.
-5. Workspace changes are saved locally immediately and cloud-synced after a short debounce.
+4. Signed-in users load their `/users/{uid}/workspaces/default` Firestore document. Cloud writes are skipped until that load has succeeded, so a failed load cannot overwrite stored data.
+5. Workspace changes are saved locally immediately and cloud-synced (whole-document `setDoc`, last write wins) after a 600 ms debounce.
 6. Cloud failures leave the local workspace usable and visibly report the fallback state.
 
 This keeps the public portfolio demo frictionless while demonstrating a realistic authenticated persistence boundary.
