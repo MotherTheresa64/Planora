@@ -81,3 +81,11 @@ html[data-theme="graphite"]{--theme-on-accent:#0a0d12}
   button,select,[role=button],[role=tab],a[href],.search input{min-height:44px!important;min-width:44px!important}
   .side-label button{display:inline-grid;place-items:center}
 }
+
+/* Phone readability: the desktop type scale drops to 8-10px, too small to read on a phone. */
+@media(max-width:760px){
+  .weekdays b,.day>span,.resource-card span,.milestone-card span,.plan-progress>span,.toolbar>span,.column-head b,.column-empty,.danger-button,.task-card>.advance,.calendar-controls button,.settings-field,.note-card>div>span,.roadmap-hero p,.setting-toggle b,.settings-facts b,[class^=project-in] strong{font-size:12px}
+  .task-card>p,.milestone-copy>p,.note-card>p,.resource-card p,.plan-description>p,.settings-card p,.health-banner p,.today-hero p{font-size:13px}
+  .calendar-controls{display:flex;align-items:center;gap:6px}
+  .calendar-controls h2{order:-1;flex:1;text-align:left;grid-row:auto}
+}
